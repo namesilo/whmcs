@@ -1148,7 +1148,7 @@ function namesilo_CheckAvailability ($params) {
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
-        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this as valid
+        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this
     }
     
     //Fill the results object from the search array
@@ -1216,7 +1216,7 @@ function namesilo_GetDomainSuggestions($params) {
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
-        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this as valid
+        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this
     }
     
     return $searchResults;
