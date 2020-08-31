@@ -8,6 +8,10 @@
 use WHMCS\Domains\DomainLookup\ResultsList;
 use WHMCS\Domains\DomainLookup\SearchResult;
 
+#Price sync dependencies
+//use WHMCS\Domains\DomainLookup\ResultsList;
+use WHMCS\Domain\TopLevel\ImportItem;
+
 function namesilo_getConfigArray()
 {
 
@@ -210,6 +214,19 @@ function namesilo_transactionCall($callType, $call, $params)
                 
                 $response['error'] = $detail;
                 break;
+            case "domainPricing":
+            if ($code == "300") {
+                $response["prices"] = [];
+                foreach ($xml->reply->children() as $tld) {
+                    if ($tld->count() === 3) {
+                        $response["prices"][] = array("tld" => (string)$tld->getName(), "registration" => (string)$tld->registration, "renew" => (string)$tld->renew, "transfer" => (string)$tld->transfer);
+                    }
+                }
+                break;
+            }
+            
+            $response['error'] = $detail;
+            break;
         }
 
     } else {
@@ -1148,7 +1165,7 @@ function namesilo_CheckAvailability ($params) {
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
-        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this
+        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this as valid
     }
     
     //Fill the results object from the search array
@@ -1165,7 +1182,7 @@ function namesilo_GetDomainSuggestions($params) {
     # Set Appropriate API Key
     $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
     
-    # Register Variables;
+    # Register Variables
     //$tld = $params["tld"]; //tld is always empty for this function, search tlds are passed as an array in tldsToInclude
     $sld = $params["searchTerm"]; //sld is empty for this function
     $tldsToInclude = $params["tldsToInclude"];
@@ -1216,8 +1233,43 @@ function namesilo_GetDomainSuggestions($params) {
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
-        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this
+        //return ['error' => 'ERROR: ' . $values["error"]]; //WHMCS refuses to accept this as valid
     }
     
     return $searchResults;
+}
+
+function namesilo_GetTldPricing($params) {
+    # Set Appropriate API Server
+    $apiServerUrl = ($params['Test_Mode'] == 'on') ? TEST_API_SERVER : LIVE_API_SERVER;
+    # Set Appropriate API Key
+    $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
+    
+    # Register Variables
+    $results = new ResultsList();
+    
+    # Transaction Call
+    $values = namesilo_transactionCall("domainPricing", $apiServerUrl . "/api/getPrices?version=1&type=xml&key=$apiKey", $params);
+    
+    //To-Do: add grace and redemtion fee days (some TLDs don't have redemption)
+    //To-Do: add redemption fee price
+    
+    if (isset($values["prices"])) { //If prices are returned transform them to a result list
+        foreach ($values["prices"] as $price) {
+            $item = new ImportItem();
+            $item->setExtension('.' . $price["tld"]);
+            $item->setCurrency('USD');
+            $item->setRegisterPrice((float)$price["registration"]);
+            $item->setRenewPrice((float)$price["renew"]);
+            $item->setTransferPrice((float)$price["transfer"]);
+            
+            $results->append($item);
+        }
+        
+        return $results;
+    } else {
+        //logActivity($values["error"]);
+        return ['error' => 'ERROR: ' . $values["error"]];
+    }
+    
 }
