@@ -69,7 +69,7 @@ $ns_sync_next_due_date = @$params ['Sync_Next_Due_Date'];
 /*****************************************/
 
 $ns_live_api_server = 'https://www.namesilo.com';
-$ns_test_api_server = 'http://sandbox.namesilo.com';
+$ns_test_api_server = 'https://sandbox.namesilo.com';
 
 /*****************************************/
 /* Define API Keys						 */
