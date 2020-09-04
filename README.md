@@ -1,4 +1,4 @@
-Latest updates include:registry premium domain name price sync and TLD price sync (sync ALL TLD price with one click inside WHMCS)
+Latest updates include: registry premium domain name price sync and TLD price sync (sync ALL TLD price with one click inside WHMCS)
 
 Features in next release in September: Domain sync and Transfer sync
 
