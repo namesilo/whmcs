@@ -3,7 +3,7 @@ Latest updates include: registry premium domain name price sync and TLD price sy
 Features in next release in September: Domain sync and Transfer sync
 
 # whmcs
-NameSilo's WHMCS 7.x Registrar Module
+NameSilo's WHMCS 7.x and 8.x Registrar Module
 
 Installing the NameSilo module for WHMCS is easy and only takes a few minutes. This module allows WHMCS to
 interface with NameSilo’s API to provide Registration, Transfer, Renewal, EPP Authcodes, DNS management and
@@ -35,7 +35,7 @@ standard FTP client (e.g. http://www.yourdomain.com/whmcs/modules/registrars/nam
 
 **To enbale premium domain support select NameSilo as the default lookup provider (Setup > Products/Services > Domain Pricing > Lookup Providers).
 
-**TLD Sync support was added, to use it go to Utilities > Registrar TLD Sync (requires WHMCS 7.10).
+**TLD Sync support was added, to use it go to Utilities > Registrar TLD Sync (requires at least WHMCS 7.10).
 
 
 SUPPORT
