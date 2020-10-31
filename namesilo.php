@@ -1,4 +1,5 @@
 <?php
+//////////////////////test registration
 
 /*****************************************/
 /* Set WHMCS Configuration Variables     */
@@ -69,7 +70,7 @@ function namesilo_transactionCall($callType, $call, $params)
         switch ($callType) {
             case "Standard":
 
-                if ($code == '300' || $code == '301' || $code == '302') {
+                if ($code == '300') {
                     $response = [];
                     break;
                 }
@@ -263,6 +264,11 @@ function namesilo_transactionCall($callType, $call, $params)
         }
     }
     logModuleCall("Namesilo",$action[0],$call,$content,$response, [$apikey]);
+    
+    //Handling for 301 and 302 codes
+    if ($code == '301' || $code == '302') {
+        $response = [];
+    }
 
     return $response;
 }
@@ -355,6 +361,7 @@ function namesilo_SaveRegistrarLock($params)
 /*****************************************/
 function namesilo_GetDNS($params)
 {
+//subdomain forwarding handling
     # Set Appropriate API Server
     $apiServerUrl = ($params['Test_Mode'] == 'on') ? TEST_API_SERVER : LIVE_API_SERVER;
     # Set Appropriate API Key
@@ -1041,6 +1048,7 @@ function namesilo_Sync($params)
 }
 
 function namesilo_TransferSync($params){
+    //logActivity('sync start');
     $apiServerUrl = ($params['Test_Mode'] == 'on') ? TEST_API_SERVER : LIVE_API_SERVER;
     $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
     $domainName = $params['domain'];
