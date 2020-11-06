@@ -20,9 +20,10 @@ function namesilo_getConfigArray()
         "Live_API_Key" => array("Type" => "text", "Size" => "30", "Description" => "Enter your Live API Key",),
         "Sandbox_API_Key" => array("Type" => "text", "Size" => "30", "Description" => "Enter your Sandbox API Key (Optional)",),
         "Payment_ID" => array("Type" => "text", "Size" => "20", "Description" => "Enter your Payment ID (Optional)",),
-        "Coupon" => array("Type" => "text", "Size" => "20", "Description" => "Enter your Reseller Discount Coupon (Optional)",),
+//        "Coupon" => array("Type" => "text", "Size" => "20", "Description" => "Enter your Reseller Discount Coupon (Optional)",),
         "Test_Mode" => array("Type" => "yesno", 'Description' => "Enable this option ONLY if you have a Sandbox account (Optional)"),
         "Auto_Renew" => array("Type" => "yesno", 'Description' => "Do you want new domain registrations to automatically renew at NameSilo?"),
+        "Default_Privacy" => array("Type" => "yesno", 'Description' => "Do you want to enable WHOIS privacy by default on registrations and transfers?"),
 //        "Sync_Next_Due_Date" => array("Type" => "yesno", 'Description' => "Tick this box if you want the expiry date sync script to update both expiry and next due dates. If left unchecked it will only update the domain expiration date. (cron must be configured)"),
         "Debug_Recipient" => array("Type" => "text", "Size" => "30", "Description" => "Enter the email address where debug emails should be sent",),
         "Debug_ON" => array("Type" => "yesno", 'Description' => "Enable this option ONLY if you want debug emails"),
@@ -266,11 +267,86 @@ function namesilo_transactionCall($callType, $call, $params)
     logModuleCall("Namesilo",$action[0],$call,$content,$response, [$apikey]);
     
     //Handling for 301 and 302 codes
-    if ($code == '301' || $code == '302') {
+    if ($callType == "Standard" && ($code == '301' || $code == '302')) {
         $response = [];
     }
 
     return $response;
+}
+
+/*****************************************/
+/* Process .us params                    */
+/*****************************************/
+function namesilo__ConvertUsParams($whmcsNexusCategory, $whmcsApplicationPurpose) {
+    $nsUsData = [];
+    
+    $nsUsData['usnc'] = urlencode($whmcsNexusCategory);
+    
+    $applicationPurposeCodes = [
+        ['name' => 'Business use for profit', 'code' => 'P1'],
+        ['name' => 'Club', 'code' => 'P2'],
+        ['name' => 'Association', 'code' => 'P2'],
+        ['name' => 'Religious Organization', 'code' => 'P2'],
+        ['name' => 'Non-profit business', 'code' => 'P2'],
+        ['name' => 'Personal Use', 'code' => 'P3'],
+        ['name' => 'Educational purposes', 'code' => 'P4'],
+        ['name' => 'Government purposes', 'code' => 'P5']
+    ];
+    
+    $nsUsData['usap'] = '';
+    
+    foreach ($applicationPurposeCodes as $ap) {
+        if ($ap['name'] == $whmcsApplicationPurpose) {
+            $nsUsData['usap'] = urlencode($ap['code']);
+            break;
+        }
+    }
+    
+    return $nsUsData;
+}
+
+function namesilo__ConvertCaParams($whmcslegalType, $whmcsCiraWhoisPivacy) {
+    $nsCaData = [];
+    
+    $nsCaData['caln'] = urlencode('en');
+    $nsCaData['caag'] = urlencode('2.0');
+    
+    //API requires inverted values for WHOIS privacy
+    if ($whmcsCiraWhoisPivacy == 'on') {
+        $nsCaData['cawd'] = urlencode('0');
+    } else {
+        $nsCaData['cawd'] = urlencode('1');
+    }
+    
+    $nsCaData['calf'] = '';
+    
+    $legalTypeCodes = [
+        ['name' => 'Corporation', 'code' => 'CCO'],
+        ['name' => 'Canadian Citizen', 'code' => 'CCT'],
+        ['name' => 'Permanent Resident of Canada', 'code' => 'RES'],
+        ['name' => 'Government', 'code' => 'GOV'],
+        ['name' => 'Canadian Educational Institution', 'code' => 'EDU'],
+        ['name' => 'Canadian Unincorporated Association', 'code' => 'ASS'],
+        ['name' => 'Canadian Hospital', 'code' => 'HOP'],
+        ['name' => 'Partnership Registered in Canada', 'code' => 'PRT'],
+        ['name' => 'Trade-mark registered in Canada', 'code' => 'TDM'],
+        ['name' => 'Canadian Trade Union', 'code' => 'TRD'],
+        ['name' => 'Canadian Political Party', 'code' => 'PLT'],
+        ['name' => 'Canadian Library Archive or Museum', 'code' => 'LAM'],
+        ['name' => 'Trust established in Canada', 'code' => 'TRS'],
+        ['name' => 'Aboriginal Peoples', 'code' => 'ABO'],
+        ['name' => 'Legal Representative of a Canadian Citizen', 'code' => 'LGR'],
+        ['name' => 'Official mark registered in Canada', 'code' => 'OMK']
+    ];
+    
+    foreach ($legalTypeCodes as $lt) {
+        if ($lt['name'] == $whmcslegalType) {
+            $nsCaData['calf'] = urlencode($lt['code']);
+            break;
+        }
+    }
+    
+    return $nsCaData;
 }
 
 /*****************************************/
@@ -504,12 +580,12 @@ function namesilo_RegisterDomain($params)
     # Set Appropriate API Key
     $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
     # Set Appropriate Private Trigger
-    $private = $params["idprotection"];
+    $private = "0";
     # Set Appropriate Auto-Renew Trigger
     $auto_renew = ($params['Auto_Renew'] == "on") ? '1' : '0';
     # Register Variables;
     $paymentid = $params["Payment_ID"];
-    $coupon = urlencode($params["Coupon"]);
+    //$coupon = urlencode($params["Coupon"]);
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
     $regperiod = $params["regperiod"];
@@ -529,8 +605,47 @@ function namesilo_RegisterDomain($params)
     $RegistrantCountry = urlencode($params["country"]);
     $RegistrantEmailAddress = urlencode($params["email"]);
     $RegistrantPhone = urlencode($params["phonenumber"]);
+    
+    if ($params["idprotection"] || $params['Default_Privacy'] == "on") {
+        $private = "1";
+    }
+    
     # Transaction Call
-    $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/registerDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid&coupon=$coupon&private=$private&ns1=$nameserver1&ns2=$nameserver2&ns3=$nameserver3&ns4=$nameserver4&ns5=$nameserver5&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone&auto_renew=$auto_renew", $params);
+    //US-CA handling
+    if (strtolower($params['tld']) == 'ca' || strtolower($params['tld']) == 'us') {
+        if (strtolower($params['tld']) == 'ca') {
+            if ($params['additionalfields']['CIRA Agreement'] != 'on') {
+                return ['error' => 'CIRA agreement not accepted.'];
+            }
+            
+            $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
+            
+            $tldParams = namesilo__ConvertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+        } elseif (strtolower($params['tld']) == 'us') {
+            $tldParams = namesilo__ConvertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
+        }
+        
+        $newContactCall = $apiServerUrl . "/api/contactAdd?version=1&type=xml&key=$apiKey&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone";
+        
+        foreach ($tldParams as $apiParam => $apiVal) {
+            $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+        }
+        
+        $contactAddResult = namesilo_transactionCall('contactAdd', $newContactCall, $params);
+        
+        if (isset($contactAddResult['error'])) {
+            return ['error' => $contactAddResult['error']];
+        }
+        
+        $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/registerDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid&private=$private&ns1=$nameserver1&ns2=$nameserver2&ns3=$nameserver3&ns4=$nameserver4&ns5=$nameserver5&contact_id=" . $contactAddResult['new_contact_id'] . "&auto_renew=$auto_renew", $params);
+        
+        if (isset($values['error'])) {
+            namesilo_transactionCall("Standard", $apiServerUrl . "/api/contactDelete?version=1&type=xml&key=$apiKey&contact_id=" . $contactAddResult['new_contact_id'], $params);
+        }
+    } else {
+    //Regular registration call
+        $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/registerDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid&private=$private&ns1=$nameserver1&ns2=$nameserver2&ns3=$nameserver3&ns4=$nameserver4&ns5=$nameserver5&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone&auto_renew=$auto_renew", $params);
+    }
     # Return Results
     return $values;
 }
@@ -545,12 +660,12 @@ function namesilo_TransferDomain($params)
     # Set Appropriate API Key
     $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
     # Set Appropriate Private Trigger
-    $private = $params["idprotection"];
+    $private = "0";
     # Set Appropriate Auto-Renew Trigger
     $auto_renew = ($params['Auto_Renew'] == "on") ? '1' : '0';
     # Register Variables
     $paymentid = $params["Payment_ID"];
-    $coupon = urlencode($params["Coupon"]);
+    //$coupon = urlencode($params["Coupon"]);
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
     $transfersecret = urlencode($params["transfersecret"]);
@@ -565,8 +680,47 @@ function namesilo_TransferDomain($params)
     $RegistrantCountry = urlencode($params["country"]);
     $RegistrantEmailAddress = urlencode($params["email"]);
     $RegistrantPhone = urlencode($params["phonenumber"]);
+    
+    if ($params["idprotection"] || $params['Default_Privacy'] == "on") {
+        $private = "1";
+    }
+    
     # Transaction Call
-    $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/transferDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&auth=$transfersecret&payment_id=$paymentid&coupon=$coupon&private=$private&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone&auto_renew=$auto_renew", $params);
+        //US-CA handling
+    if (strtolower($params['tld']) == 'ca' || strtolower($params['tld']) == 'us') {
+        if (strtolower($params['tld']) == 'ca') {
+            if ($params['additionalfields']['CIRA Agreement'] != 'on') {
+                return ['error' => 'CIRA agreement not accepted.'];
+            }
+            
+            $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
+            
+            $tldParams = namesilo__ConvertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+        } elseif (strtolower($params['tld']) == 'us') {
+            $tldParams = namesilo__ConvertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
+        }
+        
+        $newContactCall = $apiServerUrl . "/api/contactAdd?version=1&type=xml&key=$apiKey&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone";
+        
+        foreach ($tldParams as $apiParam => $apiVal) {
+            $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+        }
+        
+        $contactAddResult = namesilo_transactionCall('contactAdd', $newContactCall, $params);
+        
+        if (isset($contactAddResult['error'])) {
+            return ['error' => $contactAddResult['error']];
+        }
+        
+        $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/transferDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&auth=$transfersecret&payment_id=$paymentid&private=$private&contact_id=" . $contactAddResult['new_contact_id'] . "&auto_renew=$auto_renew", $params);
+        
+        if (isset($values['error'])) {
+            namesilo_transactionCall("Standard", $apiServerUrl . "/api/contactDelete?version=1&type=xml&key=$apiKey&contact_id=" . $contactAddResult['new_contact_id'], $params);
+        }
+    } else {
+    //Regular transfer call
+        $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/transferDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&auth=$transfersecret&payment_id=$paymentid&private=$private&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone&auto_renew=$auto_renew", $params);
+    }
     # Return Results
     return $values;
 }
@@ -582,12 +736,12 @@ function namesilo_RenewDomain($params)
     $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
     # Register Variables
     $paymentid = $params["Payment_ID"];
-    $coupon = urlencode($params["Coupon"]);
+    //$coupon = urlencode($params["Coupon"]);
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
     $regperiod = $params["regperiod"];
     # Transaction Call
-    $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/renewDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid&coupon=$coupon", $params);
+    $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/renewDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid", $params);
     # Return Results
     return $values;
 }
