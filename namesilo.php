@@ -1,5 +1,4 @@
 <?php
-//////////////////////test registration
 
 /*****************************************/
 /* Set WHMCS Configuration Variables     */
@@ -275,9 +274,9 @@ function namesilo_transactionCall($callType, $call, $params)
 }
 
 /*****************************************/
-/* Process .us params                    */
+/* Process .us/.ca params                */
 /*****************************************/
-function namesilo__ConvertUsParams($whmcsNexusCategory, $whmcsApplicationPurpose) {
+function namesilo__convertUsParams($whmcsNexusCategory, $whmcsApplicationPurpose) {
     $nsUsData = [];
     
     $nsUsData['usnc'] = urlencode($whmcsNexusCategory);
@@ -305,7 +304,7 @@ function namesilo__ConvertUsParams($whmcsNexusCategory, $whmcsApplicationPurpose
     return $nsUsData;
 }
 
-function namesilo__ConvertCaParams($whmcslegalType, $whmcsCiraWhoisPivacy) {
+function namesilo__convertCaParams($whmcslegalType, $whmcsCiraWhoisPivacy) {
     $nsCaData = [];
     
     $nsCaData['caln'] = urlencode('en');
@@ -347,6 +346,21 @@ function namesilo__ConvertCaParams($whmcslegalType, $whmcsCiraWhoisPivacy) {
     }
     
     return $nsCaData;
+}
+
+/*****************************************/
+/* Process WHOIS privacy support         */
+/*****************************************/
+function namesilo_whoisPrivacySupported($tld) {
+    $notSupportedTlds = ['us', 'in', 'tickets', 'nl', 'eu', 'uk'];
+    
+    $tld = preg_replace('/^\./', '', $tld);
+    
+    if (in_array($tld, $notSupportedTlds)) {
+        return false;
+    }
+    
+    return true;
 }
 
 /*****************************************/
@@ -606,7 +620,7 @@ function namesilo_RegisterDomain($params)
     $RegistrantEmailAddress = urlencode($params["email"]);
     $RegistrantPhone = urlencode($params["phonenumber"]);
     
-    if ($params["idprotection"] || $params['Default_Privacy'] == "on") {
+    if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo_whoisPrivacySupported($tld)) {
         $private = "1";
     }
     
@@ -620,9 +634,9 @@ function namesilo_RegisterDomain($params)
             
             $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
             
-            $tldParams = namesilo__ConvertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+            $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
         } elseif (strtolower($params['tld']) == 'us') {
-            $tldParams = namesilo__ConvertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
+            $tldParams = namesilo__convertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
         }
         
         $newContactCall = $apiServerUrl . "/api/contactAdd?version=1&type=xml&key=$apiKey&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone";
@@ -681,7 +695,7 @@ function namesilo_TransferDomain($params)
     $RegistrantEmailAddress = urlencode($params["email"]);
     $RegistrantPhone = urlencode($params["phonenumber"]);
     
-    if ($params["idprotection"] || $params['Default_Privacy'] == "on") {
+    if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo_whoisPrivacySupported($tld)) {
         $private = "1";
     }
     
@@ -695,9 +709,9 @@ function namesilo_TransferDomain($params)
             
             $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
             
-            $tldParams = namesilo__ConvertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+            $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
         } elseif (strtolower($params['tld']) == 'us') {
-            $tldParams = namesilo__ConvertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
+            $tldParams = namesilo__convertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
         }
         
         $newContactCall = $apiServerUrl . "/api/contactAdd?version=1&type=xml&key=$apiKey&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone";
