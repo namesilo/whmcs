@@ -1,4 +1,7 @@
 <?php
+if (isset($_SERVER['REMOTE_ADDR'])) {
+	exit ('ERROR: Script called from web environment');
+}
 
 /*****************************************/
 /* Grab Required Includes				 */
@@ -10,6 +13,8 @@ chdir($module_dir);
 require '../../../init.php';
 require '../../../includes/functions.php';
 require '../../../includes/registrarfunctions.php';
+
+use WHMCS\Database\Capsule;
 
 /*****************************************/
 /* Transaction Processor Function		 */
@@ -98,13 +103,14 @@ $cronreport = 'NameSilo Domain Sync Report<br>
 ';
 
 # Query WHMCS for a list of domains using NameSilo
-$queryresult = select_query ( "tbldomains", "domain", "registrar='namesilo' AND (status='Pending Transfer' OR status='Active')" );
+$queryresult = Capsule::table("tbldomains")->select("domain")->where("registrar", '=', "namesilo")->where(function ($query) {$query->where("status", '=', "Pending")->orWhere("status", '=', "Active");})->get()->toArray();
 
 # Loop through domain useing NameSilo
-while ($data = mysql_fetch_array($queryresult)) {
-
+foreach ($queryresult as $data) {
+	$data = (array) $data;
+	
 	$domainname = trim(strtolower($data['domain']));
-
+	
 	# Build API call 
 	$result = transactionProcessor($apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$domainname");
 
@@ -113,12 +119,12 @@ while ($data = mysql_fetch_array($queryresult)) {
 		$expirydate = $result ["expiry"];
 		$status = $result ["status"];
 		if ($status == 'Active') {
-			update_query ( "tbldomains", array ("status" => "Active" ), array ("domain" => $domainname ) );
+			Capsule::table("tbldomains")->where("domain", '=', $domainname)->update(["status" => "Active"]);
 		}
 		if ($expirydate) {
-			update_query ( "tbldomains", array ("expirydate" => $expirydate ), array ("domain" => $domainname ) );
+			Capsule::table("tbldomains")->where("domain", '=', $domainname)->update(["expirydate" => $expirydate]);
 			if (@$ns_sync_next_due_date == 'on') {
-				update_query ( "tbldomains", array ("nextduedate" => $expirydate ), array ("domain" => $domainname ) );
+				Capsule::table("tbldomains")->where("domain", '=', $domainname)->update(["nextduedate" => $expirydate]);
 			}
 			$cronreport .= '' . 'Updated ' . $domainname . ' expiry to ' . frommysqldate ( $expirydate ) . '<br>';
 		}
