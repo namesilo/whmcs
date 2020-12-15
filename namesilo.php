@@ -19,11 +19,13 @@ function namesilo_getConfigArray()
         "Live_API_Key" => array("Type" => "text", "Size" => "30", "Description" => "Enter your Live API Key",),
         "Sandbox_API_Key" => array("Type" => "text", "Size" => "30", "Description" => "Enter your Sandbox API Key (Optional)",),
         "Payment_ID" => array("Type" => "text", "Size" => "20", "Description" => "Enter your Payment ID (Optional)",),
+        "Sandbox_Payment_ID" => array("Type" => "text", "Size" => "20", "Description" => "Enter your Sandbox Payment ID (Optional)",),
 //        "Coupon" => array("Type" => "text", "Size" => "20", "Description" => "Enter your Reseller Discount Coupon (Optional)",),
         "Test_Mode" => array("Type" => "yesno", 'Description' => "Enable this option ONLY if you have a Sandbox account (Optional)"),
         "Auto_Renew" => array("Type" => "yesno", 'Description' => "Do you want new domain registrations to automatically renew at NameSilo?"),
         "Default_Privacy" => array("Type" => "yesno", 'Description' => "Do you want to enable WHOIS privacy by default on registrations and transfers?"),
-//        "Sync_Next_Due_Date" => array("Type" => "yesno", 'Description' => "Tick this box if you want the expiry date sync script to update both expiry and next due dates. If left unchecked it will only update the domain expiration date. (cron must be configured)"),
+        "Delete_Default_DNS" => array("Type" => "yesno", 'Description' => "Do you want to delete the default DNS records when the default name servers are used on registrations?"),
+        "Sync_Next_Due_Date" => array("Type" => "yesno", 'Description' => "Tick this box if you want the expiry date sync script to update both expiry and next due dates. If left unchecked it will only update the domain expiration date. (cron must be configured)"),
         "Debug_Recipient" => array("Type" => "text", "Size" => "30", "Description" => "Enter the email address where debug emails should be sent",),
         "Debug_ON" => array("Type" => "yesno", 'Description' => "Enable this option ONLY if you want debug emails"),
     );
@@ -351,7 +353,7 @@ function namesilo__convertCaParams($whmcslegalType, $whmcsCiraWhoisPivacy) {
 /*****************************************/
 /* Process WHOIS privacy support         */
 /*****************************************/
-function namesilo_whoisPrivacySupported($tld) {
+function namesilo__whoisPrivacySupported($tld) {
     $notSupportedTlds = ['us', 'in', 'tickets', 'nl', 'eu', 'uk'];
     
     $tld = preg_replace('/^\./', '', $tld);
@@ -361,6 +363,34 @@ function namesilo_whoisPrivacySupported($tld) {
     }
     
     return true;
+}
+
+/*****************************************/
+/* Remove all DNS records                */
+/*****************************************/
+function namesilo__deleteDnsRecords($params) {
+    # Set Appropriate API Server
+    $apiServerUrl = ($params['Test_Mode'] == 'on') ? TEST_API_SERVER : LIVE_API_SERVER;
+    # Set Appropriate API Key
+    $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
+    # Register Variables
+    $tld = urlencode($params["tld"]);
+    $sld = urlencode($params["sld"]);
+    
+    $result = [];
+    # Get domain DNS records
+    $response = namesilo_transactionCall('listDNS', $apiServerUrl . "/api/dnsListRecords?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
+    
+    if (!(isset($response['error']))) {
+        foreach ($response as $dnsRecord) {
+            #Remove each record using its code, collect responses from transactionCall
+            $result[] = namesilo_transactionCall('Standard', $apiServerUrl . "/api/dnsDeleteRecord?version=1&type=xml&key=$apiKey&domain=$sld.$tld&rrid=" . urlencode($dnsRecord['record_id']), $params);
+        }
+    } else {
+        $result[] = $response['error'];
+    }
+    
+    return $result;
 }
 
 /*****************************************/
@@ -598,7 +628,8 @@ function namesilo_RegisterDomain($params)
     # Set Appropriate Auto-Renew Trigger
     $auto_renew = ($params['Auto_Renew'] == "on") ? '1' : '0';
     # Register Variables;
-    $paymentid = $params["Payment_ID"];
+    $paymentid = ($params['Test_Mode'] == 'on') ? $params['Sandbox_Payment_ID'] : $params['Payment_ID'];
+    $deleteDefaultDns = $params['Delete_Default_DNS'] == 'on';
     //$coupon = urlencode($params["Coupon"]);
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
@@ -620,7 +651,7 @@ function namesilo_RegisterDomain($params)
     $RegistrantEmailAddress = urlencode($params["email"]);
     $RegistrantPhone = urlencode($params["phonenumber"]);
     
-    if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo_whoisPrivacySupported($tld)) {
+    if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo__whoisPrivacySupported($tld)) {
         $private = "1";
     }
     
@@ -660,6 +691,23 @@ function namesilo_RegisterDomain($params)
     //Regular registration call
         $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/registerDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid&private=$private&ns1=$nameserver1&ns2=$nameserver2&ns3=$nameserver3&ns4=$nameserver4&ns5=$nameserver5&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone&auto_renew=$auto_renew", $params);
     }
+    
+    # Delete default DNS records if the domain uses namesilo name servers
+    if ($deleteDefaultDns) {
+        //Use API to get name servers
+        //Default name servers are used when the API call doesn't include them, when the name servers have errors or when requested
+        $domainNameServers = namesilo_transactionCall("getNameServers", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
+        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com'. 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
+        
+        foreach ($domainNameServers as $nsKey => $nsValue) {
+            if (in_array(strtolower($nsValue), $namesiloNameServers)) {
+                //If a name server matches the defaults, delete (default) DNS records
+                namesilo__deleteDnsRecords($params);
+                break;
+            }
+        }
+    }
+    
     # Return Results
     return $values;
 }
@@ -678,7 +726,7 @@ function namesilo_TransferDomain($params)
     # Set Appropriate Auto-Renew Trigger
     $auto_renew = ($params['Auto_Renew'] == "on") ? '1' : '0';
     # Register Variables
-    $paymentid = $params["Payment_ID"];
+    $paymentid = ($params['Test_Mode'] == 'on') ? $params['Sandbox_Payment_ID'] : $params['Payment_ID'];
     //$coupon = urlencode($params["Coupon"]);
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
@@ -695,7 +743,7 @@ function namesilo_TransferDomain($params)
     $RegistrantEmailAddress = urlencode($params["email"]);
     $RegistrantPhone = urlencode($params["phonenumber"]);
     
-    if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo_whoisPrivacySupported($tld)) {
+    if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo__whoisPrivacySupported($tld)) {
         $private = "1";
     }
     
@@ -749,7 +797,7 @@ function namesilo_RenewDomain($params)
     # Set Appropriate API Key
     $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
     # Register Variables
-    $paymentid = $params["Payment_ID"];
+    $paymentid = ($params['Test_Mode'] == 'on') ? $params['Sandbox_Payment_ID'] : $params['Payment_ID'];
     //$coupon = urlencode($params["Coupon"]);
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
