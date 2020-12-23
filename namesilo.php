@@ -394,6 +394,30 @@ function namesilo__deleteDnsRecords($params) {
 }
 
 /*****************************************/
+/* Create contact and run action         */
+/*****************************************/
+function namesilo__registerContactAction($contactAddCall, $actionCall, $params, $vars) {
+//Registers a contact then uses that contact to run an API call
+//Required apiServerUrl, apiKey in $vars
+    
+    $contactAddResult = namesilo_transactionCall('contactAdd', $contactAddCall, $params);
+        
+    if (isset($contactAddResult['error'])) {
+        return ['error' => $contactAddResult['error']];
+    }
+    
+    $actionCall .= '&contact_id=' . $contactAddResult['new_contact_id'];
+    
+    $actionResult = namesilo_transactionCall("Standard", $actionCall, $params);
+    
+    if (isset($actionResult['error'])) {
+        namesilo_transactionCall("Standard", $vars['apiServerUrl'] . "/api/contactDelete?version=1&type=xml&key=" . $vars['apiKey'] . "&contact_id=" . $contactAddResult['new_contact_id'], $params);
+    }
+    
+    return $actionResult;
+}
+
+/*****************************************/
 /* Retrieve Domain's Name Servers        */
 /*****************************************/
 function namesilo_GetNameservers($params)
@@ -658,34 +682,36 @@ function namesilo_RegisterDomain($params)
     # Transaction Call
     //US-CA handling
     if (strtolower($params['tld']) == 'ca' || strtolower($params['tld']) == 'us') {
+        $vars = array(
+            'apiServerUrl' => $apiServerUrl,
+            'apiKey' => $apiKey,
+            'RegistrantFirstName' => $RegistrantFirstName,
+            'RegistrantLastName' => $RegistrantLastName,
+            'RegistrantAddress1' => $RegistrantAddress1,
+            'RegistrantAddress2' => $RegistrantAddress2,
+            'RegistrantCity' => $RegistrantCity,
+            'RegistrantStateProvince' => $RegistrantStateProvince,
+            'RegistrantPostalCode' => $RegistrantPostalCode,
+            'RegistrantCountry' => $RegistrantCountry,
+            'RegistrantEmailAddress' => $RegistrantEmailAddress,
+            'RegistrantPhone' => $RegistrantPhone,
+            'sld' => $sld,
+            'tld' => $tld,
+            'regperiod' => $regperiod,
+            'paymentid' => $paymentid,
+            'private' => $private,
+            'nameserver1' => $nameserver1,
+            'nameserver2' => $nameserver2,
+            'nameserver3' => $nameserver3,
+            'nameserver4' => $nameserver4,
+            'nameserver5' => $nameserver5,
+            'auto_renew' => $auto_renew
+        );
+        
         if (strtolower($params['tld']) == 'ca') {
-            if ($params['additionalfields']['CIRA Agreement'] != 'on') {
-                return ['error' => 'CIRA agreement not accepted.'];
-            }
-            
-            $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
-            
-            $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+            $values = namesilo__registerCaDomain($vars, $params);
         } elseif (strtolower($params['tld']) == 'us') {
-            $tldParams = namesilo__convertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
-        }
-        
-        $newContactCall = $apiServerUrl . "/api/contactAdd?version=1&type=xml&key=$apiKey&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone";
-        
-        foreach ($tldParams as $apiParam => $apiVal) {
-            $newContactCall .= '&' . $apiParam . '=' . $apiVal;
-        }
-        
-        $contactAddResult = namesilo_transactionCall('contactAdd', $newContactCall, $params);
-        
-        if (isset($contactAddResult['error'])) {
-            return ['error' => $contactAddResult['error']];
-        }
-        
-        $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/registerDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&years=$regperiod&payment_id=$paymentid&private=$private&ns1=$nameserver1&ns2=$nameserver2&ns3=$nameserver3&ns4=$nameserver4&ns5=$nameserver5&contact_id=" . $contactAddResult['new_contact_id'] . "&auto_renew=$auto_renew", $params);
-        
-        if (isset($values['error'])) {
-            namesilo_transactionCall("Standard", $apiServerUrl . "/api/contactDelete?version=1&type=xml&key=$apiKey&contact_id=" . $contactAddResult['new_contact_id'], $params);
+            $values = namesilo__registerUsDomain($vars, $params);
         }
     } else {
     //Regular registration call
@@ -710,6 +736,54 @@ function namesilo_RegisterDomain($params)
     
     # Return Results
     return $values;
+}
+
+/*****************************************/
+/* TLD specific registrations            */
+/*****************************************/
+function namesilo__registerContactDomain($contactAddCall, $registrationCall, $params, $vars) {
+//Registers a contact then uses that contact to register a domain
+//Required apiKey in $vars
+    
+    return namesilo__registerContactAction($contactAddCall, $registrationCall, $params, $vars);
+}
+
+function namesilo__registerUsDomain($vars, $params) {
+//Required vars: apiServerUrl, apiKey, RegistrantFirstName, RegistrantLastName, RegistrantAddress1, RegistrantAddress2, RegistrantCity, RegistrantStateProvince, RegistrantPostalCode, RegistrantCountry, RegistrantEmailAddress, RegistrantPhone, sld, tld, regperiod, paymentid, private, nameserver1, nameserver2, nameserver3, nameserver4, nameserver5, auto_renew
+    
+    $tldParams = namesilo__convertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
+    
+    $newContactCall = $vars['apiServerUrl'] . "/api/contactAdd?version=1&type=xml&key=" . $vars['apiKey'] . "&fn=" . $vars['RegistrantFirstName'] . "&ln=" . $vars['RegistrantLastName'] . "&ad=" . $vars['RegistrantAddress1'] . "&ad2=" . $vars['RegistrantAddress2'] . "&cy=" . $vars['RegistrantCity'] . "&st=" . $vars['RegistrantStateProvince'] . "&zp=" . $vars['RegistrantPostalCode'] . "&ct=" . $vars['RegistrantCountry'] . "&em=" . $vars['RegistrantEmailAddress'] . "&ph=" . $vars['RegistrantPhone'];
+    
+    foreach ($tldParams as $apiParam => $apiVal) {
+        $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+    }
+    
+    $newRegistrationCall = $vars['apiServerUrl'] . "/api/registerDomain?version=1&type=xml&key=" . $vars['apiKey'] . "&domain=" . $vars['sld'] . "." . $vars['tld'] . "&years=" . $vars['regperiod'] . "&payment_id=" . $vars['paymentid'] . "&private=" . $vars['private'] . "&ns1=" . $vars['nameserver1'] . "&ns2=" . $vars['nameserver2'] . "&ns3=" . $vars['nameserver3'] . "&ns4=" . $vars['nameserver4'] . "&ns5=" . $vars['nameserver5'] . "&auto_renew=" . $vars['auto_renew'];
+    
+    return namesilo__registerContactDomain($newContactCall, $newRegistrationCall, $params, $vars);
+}
+
+function namesilo__registerCaDomain($vars, $params) {
+//Required vars: apiServerUrl, apiKey, RegistrantFirstName, RegistrantLastName, RegistrantAddress1, RegistrantAddress2, RegistrantCity, RegistrantStateProvince, RegistrantPostalCode, RegistrantCountry, RegistrantEmailAddress, RegistrantPhone, sld, tld, regperiod, paymentid, private, nameserver1, nameserver2, nameserver3, nameserver4, nameserver5, auto_renew
+
+    if ($params['additionalfields']['CIRA Agreement'] != 'on') {
+        return ['error' => 'CIRA agreement not accepted.'];
+    }
+    
+    $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
+        
+    $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+    
+    $newContactCall = $vars['apiServerUrl'] . "/api/contactAdd?version=1&type=xml&key=" . $vars['apiKey'] . "&fn=" . $vars['RegistrantFirstName'] . "&ln=" . $vars['RegistrantLastName'] . "&ad=" . $vars['RegistrantAddress1'] . "&ad2=" . $vars['RegistrantAddress2'] . "&cy=" . $vars['RegistrantCity'] . "&st=" . $vars['RegistrantStateProvince'] . "&zp=" . $vars['RegistrantPostalCode'] . "&ct=" . $vars['RegistrantCountry'] . "&em=" . $vars['RegistrantEmailAddress'] . "&ph=" . $vars['RegistrantPhone'];
+    
+    foreach ($tldParams as $apiParam => $apiVal) {
+        $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+    }
+    
+    $newRegistrationCall = $vars['apiServerUrl'] . "/api/registerDomain?version=1&type=xml&key=" . $vars['apiKey'] . "&domain=" . $vars['sld'] . "." . $vars['tld'] . "&years=" . $vars['regperiod'] . "&payment_id=" . $vars['paymentid'] . "&private=" . $vars['private'] . "&ns1=" . $vars['nameserver1'] . "&ns2=" . $vars['nameserver2'] . "&ns3=" . $vars['nameserver3'] . "&ns4=" . $vars['nameserver4'] . "&ns5=" . $vars['nameserver5'] . "&auto_renew=" . $vars['auto_renew'];
+    
+    return namesilo__registerContactDomain($newContactCall, $newRegistrationCall, $params, $vars);
 }
 
 /*****************************************/
@@ -748,43 +822,89 @@ function namesilo_TransferDomain($params)
     }
     
     # Transaction Call
-        //US-CA handling
+    //US-CA handling
     if (strtolower($params['tld']) == 'ca' || strtolower($params['tld']) == 'us') {
+        $vars = array(
+            'apiServerUrl' => $apiServerUrl,
+            'apiKey' => $apiKey,
+            'RegistrantFirstName' => $RegistrantFirstName,
+            'RegistrantLastName' => $RegistrantLastName,
+            'RegistrantAddress1' => $RegistrantAddress1,
+            'RegistrantAddress2' => $RegistrantAddress2,
+            'RegistrantCity' => $RegistrantCity,
+            'RegistrantStateProvince' => $RegistrantStateProvince,
+            'RegistrantPostalCode' => $RegistrantPostalCode,
+            'RegistrantCountry' => $RegistrantCountry,
+            'RegistrantEmailAddress' => $RegistrantEmailAddress,
+            'RegistrantPhone' => $RegistrantPhone,
+            'sld' => $sld,
+            'tld' => $tld,
+            'transfersecret' => $transfersecret,
+            'paymentid' => $paymentid,
+            'private' => $private,
+            'auto_renew' => $auto_renew
+        );
+        
         if (strtolower($params['tld']) == 'ca') {
-            if ($params['additionalfields']['CIRA Agreement'] != 'on') {
-                return ['error' => 'CIRA agreement not accepted.'];
-            }
-            
-            $params['additionalfields']['WHOIS Opt-out'] == 'on' || $private == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
-            
-            $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+            $values = namesilo__transferCaDomain($vars, $params);
         } elseif (strtolower($params['tld']) == 'us') {
-            $tldParams = namesilo__convertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
-        }
-        
-        $newContactCall = $apiServerUrl . "/api/contactAdd?version=1&type=xml&key=$apiKey&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone";
-        
-        foreach ($tldParams as $apiParam => $apiVal) {
-            $newContactCall .= '&' . $apiParam . '=' . $apiVal;
-        }
-        
-        $contactAddResult = namesilo_transactionCall('contactAdd', $newContactCall, $params);
-        
-        if (isset($contactAddResult['error'])) {
-            return ['error' => $contactAddResult['error']];
-        }
-        
-        $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/transferDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&auth=$transfersecret&payment_id=$paymentid&private=$private&contact_id=" . $contactAddResult['new_contact_id'] . "&auto_renew=$auto_renew", $params);
-        
-        if (isset($values['error'])) {
-            namesilo_transactionCall("Standard", $apiServerUrl . "/api/contactDelete?version=1&type=xml&key=$apiKey&contact_id=" . $contactAddResult['new_contact_id'], $params);
+            $values = namesilo__transferUsDomain($vars, $params);
         }
     } else {
     //Regular transfer call
         $values = namesilo_transactionCall("Standard", $apiServerUrl . "/api/transferDomain?version=1&type=xml&key=$apiKey&domain=$sld.$tld&auth=$transfersecret&payment_id=$paymentid&private=$private&fn=$RegistrantFirstName&ln=$RegistrantLastName&ad=$RegistrantAddress1&ad2=$RegistrantAddress2&cy=$RegistrantCity&st=$RegistrantStateProvince&zp=$RegistrantPostalCode&ct=$RegistrantCountry&em=$RegistrantEmailAddress&ph=$RegistrantPhone&auto_renew=$auto_renew", $params);
     }
+    
     # Return Results
     return $values;
+}
+
+/*****************************************/
+/* TLD specific transfers                */
+/*****************************************/
+function namesilo__transferContactDomain($contactAddCall, $registrationTransferCall, $params, $vars) {
+//Registers a contact then uses that contact to register or transfer a domain
+//Required apiKey in $vars
+    
+    return namesilo__registerContactAction($contactAddCall, $registrationTransferCall, $params, $vars);
+}
+
+function namesilo__transferUsDomain($vars, $params) {
+//Required vars: apiServerUrl, apiKey, RegistrantFirstName, RegistrantLastName, RegistrantAddress1, RegistrantAddress2, RegistrantCity, RegistrantStateProvince, RegistrantPostalCode, RegistrantCountry, RegistrantEmailAddress, RegistrantPhone, sld, tld, transfersecret, paymentid, private, auto_renew
+    
+    $tldParams = namesilo__convertUsParams($params['additionalfields']['Nexus Category'], $params['additionalfields']['Application Purpose']);
+    
+    $newContactCall = $vars['apiServerUrl'] . "/api/contactAdd?version=1&type=xml&key=" . $vars['apiKey'] . "&fn=" . $vars['RegistrantFirstName'] . "&ln=" . $vars['RegistrantLastName'] . "&ad=" . $vars['RegistrantAddress1'] . "&ad2=" . $vars['RegistrantAddress2'] . "&cy=" . $vars['RegistrantCity'] . "&st=" . $vars['RegistrantStateProvince'] . "&zp=" . $vars['RegistrantPostalCode'] . "&ct=" . $vars['RegistrantCountry'] . "&em=" . $vars['RegistrantEmailAddress'] . "&ph=" . $vars['RegistrantPhone'];
+    
+    foreach ($tldParams as $apiParam => $apiVal) {
+        $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+    }
+    
+    $newTransferCall = $vars['apiServerUrl'] . "/api/transferDomain?version=1&type=xml&key=" . $vars['apiKey'] . "&domain=" . $vars['sld'] . "." . $vars['tld'] . "&auth=" . $vars['transfersecret'] . "&payment_id=" . $vars['paymentid'] . "&private=" . $vars['private'] . "&auto_renew=" . $vars['auto_renew'];
+    
+    return namesilo__transferContactDomain($newContactCall, $newTransferCall, $params, $vars);
+}
+
+function namesilo__transferCaDomain($vars, $params) {
+//Required vars: apiServerUrl, apiKey, RegistrantFirstName, RegistrantLastName, RegistrantAddress1, RegistrantAddress2, RegistrantCity, RegistrantStateProvince, RegistrantPostalCode, RegistrantCountry, RegistrantEmailAddress, RegistrantPhone, sld, tld, transfersecret, paymentid, private, auto_renew
+    
+    if ($params['additionalfields']['CIRA Agreement'] != 'on') {
+        return ['error' => 'CIRA agreement not accepted.'];
+    }
+    
+    $params['additionalfields']['WHOIS Opt-out'] == 'on' || $vars['private'] == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
+        
+    $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+    
+    $newContactCall = $vars['apiServerUrl'] . "/api/contactAdd?version=1&type=xml&key=" . $vars['apiKey'] . "&fn=" . $vars['RegistrantFirstName'] . "&ln=" . $vars['RegistrantLastName'] . "&ad=" . $vars['RegistrantAddress1'] . "&ad2=" . $vars['RegistrantAddress2'] . "&cy=" . $vars['RegistrantCity'] . "&st=" . $vars['RegistrantStateProvince'] . "&zp=" . $vars['RegistrantPostalCode'] . "&ct=" . $vars['RegistrantCountry'] . "&em=" . $vars['RegistrantEmailAddress'] . "&ph=" . $vars['RegistrantPhone'];
+    
+    foreach ($tldParams as $apiParam => $apiVal) {
+        $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+    }
+    
+    $newTransferCall = $vars['apiServerUrl'] . "/api/transferDomain?version=1&type=xml&key=" . $vars['apiKey'] . "&domain=" . $vars['sld'] . "." . $vars['tld'] . "&auth=" . $vars['transfersecret'] . "&payment_id=" . $vars['paymentid'] . "&private=" . $vars['private'] . "&auto_renew=" . $vars['auto_renew'];
+    
+    return namesilo__transferContactDomain($newContactCall, $newTransferCall, $params, $vars);
 }
 
 /*****************************************/
