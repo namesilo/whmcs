@@ -734,6 +734,12 @@ function namesilo_RegisterDomain($params)
         }
     }
     
+    if (isset($values['error'])) {
+        if ($values['error'] == 'Invalid number of years, or no years provided.' && $regperiod > 0 && $regperiod <= 10) {
+            $values['error'] = 'Invalid number of years, or no years provided. If a valid number was entered the domain does not support multiple year registrations at the moment, to add extra years please regsiter the domain for one year then  use the renewal process to add extra years.';
+        }
+    }
+    
     # Return Results
     return $values;
 }
