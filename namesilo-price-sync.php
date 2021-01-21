@@ -876,10 +876,12 @@ Class WhmcsPriceDbHandler extends WhmcsDbHandler {
 					$newDbEntry[$item[2]] = $item[1];
 					
 					//Add item database template
-					if (isset($item[3])) {
-						foreach ($item[3] as $tKey => $tValue) {
-							if (!isset($newDbEntry[$tKey])) {
-								$newDbEntry[$tKey] = $tValue;
+					if ($useTemplate) {
+						if (isset($item[3])) {
+							foreach ($item[3] as $tKey => $tValue) {
+								if (!isset($newDbEntry[$tKey])) {
+									$newDbEntry[$tKey] = $tValue;
+								}
 							}
 						}
 					}
@@ -1056,11 +1058,11 @@ $whmcsPriceList->elements = [
 ];
 
 $whmcsPriceList->uniqueElements = [
-	'operation,domainId'
+	'operation,currency,domainId'
 ];
 
 $whmcsPriceList->requiredElements = [
-	'operation', 'domainId'
+	'operation', 'currency', 'domainId'
 ];
 
 //Items match operation list
@@ -1253,7 +1255,7 @@ foreach ($tldWorkList as $wTld) {
 	$tldId = $tldEntry['id'];
 	
 	//Get all prices for TLD id
-	$oldPrices = $whmcsPriceList->getEntry(['domainId' => $tldId]);
+	$oldPrices = $whmcsPriceList->getEntry(['domainId' => $tldId, 'currency' => $currencyId]);
 	
 	//Get/Calculate new prices
 	$newPrices = [];
@@ -1295,7 +1297,7 @@ foreach ($tldWorkList as $wTld) {
 				
 				//If new price is different from old price update database
 				if ($oldPrice['price'] != $nPriceValue) {
-					$whmcsPriceList->updateEntry(['price' => $nPriceValue, 'currency' => $currencyId], ['domainId' => $tldId, 'operation' => $nPriceKey]);
+					$whmcsPriceList->updateEntry(['price' => $nPriceValue], ['domainId' => $tldId, 'currency' => $currencyId, 'operation' => $nPriceKey]);
 				}
 				
 				break;
