@@ -9,6 +9,7 @@ Arguments:
 Profit margin to add on each price, it can be a fixed amount or a percentage (by using p or % at the end of the number)
 Examples: 5.10, 3p, 22%
 Default value is: 0.00
+*Cron treats percent signs in a special way, if used escape the percent sign or use p instead
 
 -update=[all/already-added/namesilo-only/none]
 TLDs that will be updated or added by the script
