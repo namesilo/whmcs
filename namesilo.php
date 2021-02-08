@@ -62,9 +62,22 @@ function namesilo_transactionCall($callType, $call, $params)
     $response = [];
 
     # Process Result
+    
     if (!$err) {
-        $xml = new SimpleXMLElement($content);
-
+        $xmlErrorDisplay = libxml_use_internal_errors(true);
+            
+        try {
+            $xml = new SimpleXMLElement($content);
+        } catch(Exception $excp) {
+            $err = -1;
+            $errmsg = $excp->getMessage();
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($xmlErrorDisplay);
+        }
+    }
+    
+    if (!$err) {
         $code = (int)$xml->reply->code;
         $detail = (string)$xml->reply->detail;
 //        $message = (string)$xml->reply->message;
@@ -731,12 +744,6 @@ function namesilo_RegisterDomain($params)
                 namesilo__deleteDnsRecords($params);
                 break;
             }
-        }
-    }
-    
-    if (isset($values['error'])) {
-        if ($values['error'] == 'Invalid number of years, or no years provided.' && $regperiod > 0 && $regperiod <= 10) {
-            $values['error'] = 'Invalid number of years, or no years provided. If a valid number was entered the domain does not support multiple year registrations at the moment, to add extra years please regsiter the domain for one year then  use the renewal process to add extra years.';
         }
     }
     
