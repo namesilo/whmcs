@@ -62,9 +62,22 @@ function namesilo_transactionCall($callType, $call, $params)
     $response = [];
 
     # Process Result
+    
     if (!$err) {
-        $xml = new SimpleXMLElement($content);
-
+        $xmlErrorDisplay = libxml_use_internal_errors(true);
+            
+        try {
+            $xml = new SimpleXMLElement($content);
+        } catch(Exception $excp) {
+            $err = -1;
+            $errmsg = $excp->getMessage();
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($xmlErrorDisplay);
+        }
+    }
+    
+    if (!$err) {
         $code = (int)$xml->reply->code;
         $detail = (string)$xml->reply->detail;
 //        $message = (string)$xml->reply->message;
