@@ -66,7 +66,7 @@ use WHMCS\Database\Capsule;
 /* Process arguments					 */
 /*****************************************/
 foreach ($argv as $ar) {
-	if (preg_match('/^-margin=/i', $ar)) {
+	if (preg_match('/^-{1,2}margin=/i', $ar)) {
 		$margin = explode('=', $ar);
 		(count($margin) > 1) ? $margin = $margin[1] : $margin = null;
 		
@@ -94,7 +94,7 @@ if (!isset($margin) || is_null($margin)) {
 
 
 foreach ($argv as $ar) {
-	if (preg_match('/^-update=/i', $ar)) {
+	if (preg_match('/^-{1,2}update=/i', $ar)) {
 		$updateTarget = explode('=', $ar);
 		(count($updateTarget) > 1) ? $updateTarget = $updateTarget[1] : $updateTarget = null;
 		
@@ -118,7 +118,7 @@ if (!isset($updateTarget) || is_null($updateTarget)) {
 }
 
 foreach ($argv as $ar) {
-	if (preg_match('/^-make-default-registrar=/i', $ar)) {
+	if (preg_match('/^-{1,2}make-default-registrar=/i', $ar)) {
 		$makeDefaultRegistrar = explode('=', $ar);
 		(count($makeDefaultRegistrar) > 1) ? $makeDefaultRegistrar = $makeDefaultRegistrar[1] : $makeDefaultRegistrar = null;
 		
@@ -138,7 +138,7 @@ if (!isset($makeDefaultRegistrar) || is_null($makeDefaultRegistrar)) {
 }
 
 foreach ($argv as $ar) {
-	if (preg_match('/^-round-to-next=/i', $ar)) {
+	if (preg_match('/^-{1,2}round-to-next=/i', $ar)) {
 		$roundToNext = explode('=', $ar);
 		(count($roundToNext) > 1) ? $roundToNext = $roundToNext[1] : $roundToNext = null;
 		(is_numeric($roundToNext)) ? $roundToNext = (float)$roundToNext : $roundToNext = null;
@@ -159,7 +159,7 @@ if (!isset($roundToNext)) {
 }
 
 foreach ($argv as $ar) {
-	if (preg_match('/^-template=/i', $ar)) {
+	if (preg_match('/^-{1,2}template=/i', $ar)) {
 		$templateTld = explode('=', $ar);
 		(count($templateTld) > 1) ? $templateTld = $templateTld[1] : $templateTld = null;
 		
@@ -178,7 +178,7 @@ if (!isset($templateTld)) {
 }
 
 foreach ($argv as $ar) {
-	if (preg_match('/^-exclude=/i', $ar)) {
+	if (preg_match('/^-{1,2}exclude=/i', $ar)) {
 		$excludedTld = explode('=', $ar);
 		(count($excludedTld) > 1) ? $excludedTld = $excludedTld[1] : $excludedTld = null;
 		
@@ -199,7 +199,7 @@ if (!isset($excludedTld) || is_null($excludedTld)) {
 }
 
 foreach ($argv as $ar) {
-	if (preg_match('/^-include=/i', $ar)) {
+	if (preg_match('/^-{1,2}include=/i', $ar)) {
 		$includedTld = explode('=', $ar);
 		(count($includedTld) > 1) ? $includedTld = $includedTld[1] : $includedTld = null;
 		
@@ -399,13 +399,13 @@ Class WhmcsDbHandler {
 		
 		//Required value handling
 		if (!$this->_hasRequiredFields($entryData)) {
-			$this->_log(serialize($entryData) . ': Required values not found');
+			$this->_log(json_encode($entryData) . ': Required values not found');
 			return false;
 		}
 		
 		//Duplicate handling
 		if ($this->_isDuplicate($entryData)) {
-			$this->_log(serialize($entryData) . ': Duplicate entry exists');
+			$this->_log(json_encode($entryData) . ': Duplicate entry exists');
 			return false;
 		}
 		
@@ -446,7 +446,7 @@ Class WhmcsDbHandler {
 		}
 		
 		if (is_null($entryIndex)) {
-			$this->_log(serialize($selector) . ': Entry not found');
+			$this->_log(json_encode($selector) . ': Entry not found');
 			return false;
 		}
 		
@@ -472,19 +472,19 @@ Class WhmcsDbHandler {
 		$this->entryList[$entryIndex] = $originalEntry;
 		
 		if ($duplicate) {
-			$this->_log(serialize($selector) . ': Duplicate entry exists');
+			$this->_log(json_encode($selector) . ': Duplicate entry exists');
 			return false;
 		}
 		
 		if ($originalEntry == $updatedEntry) {
-			$this->_log(serialize($selector) . ': No data changes found');
+			$this->_log(json_encode($selector) . ': No data changes found');
 			return false;
 		}
 		
 		//Send data to database
 		try {
 			if (!$this->_pushToDatabase($entryData, $selector)['result']) {
-				$this->_log(serialize($selector) . ': Database update failed');
+				$this->_log(json_encode($selector) . ': Database update failed');
 				return false;
 			}
 		} catch (Exception $ex) {
@@ -510,14 +510,14 @@ Class WhmcsDbHandler {
 		}
 		
 		if (is_null($entryIndex)) {
-			$this->_log(serialize($selector) . ': Entry not found');
+			$this->_log(json_encode($selector) . ': Entry not found');
 			return false;
 		}
 		
 		//Delete data on database
 		try {
 			if (!$this->_databaseDelete($selector)) {
-				$this->_log(serialize($selector) . ': Database delete failed');
+				$this->_log(json_encode($selector) . ': Database delete failed');
 				return false;
 			}
 		} catch (Exception $ex) {
