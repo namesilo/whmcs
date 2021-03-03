@@ -91,6 +91,10 @@ function namesilo_transactionCall($callType, $call, $params)
                 }
 
                 $response['error'] = $detail;
+                
+                if ($code == '301' || $code == '302') {
+                    $response['error'] .= ' - ' . (string)$xml->reply->message;
+                }
                 break;
             case 'domainSync':
 
