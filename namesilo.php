@@ -371,7 +371,7 @@ function namesilo__convertCaParams($whmcslegalType, $whmcsCiraWhoisPivacy) {
 /* Process WHOIS privacy support         */
 /*****************************************/
 function namesilo__whoisPrivacySupported($tld) {
-    $notSupportedTlds = ['us', 'in', 'tickets', 'nl', 'eu', 'uk'];
+    $notSupportedTlds = ['us', 'in', 'tickets', 'nl', 'eu', 'uk', 'at'];
     
     $tld = preg_replace('/^\./', '', $tld);
     
