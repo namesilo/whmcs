@@ -33,7 +33,7 @@ standard FTP client (e.g. http://www.yourdomain.com/whmcs/modules/registrars/nam
 3. Update any details that are still blank.
 
 
-**To enbale premium domain support select NameSilo as the default lookup provider (Setup > Products/Services > Domain Pricing > Lookup Providers).
+**To enbale premium domain pricing support select NameSilo as the default lookup provider (Setup > Products/Services > Domain Pricing > Lookup Providers).
 
 **Premium domain orders need to be completed manually, premium pricing and customer ordering work as normal
 
