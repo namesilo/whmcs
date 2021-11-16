@@ -1399,14 +1399,16 @@ function namesilo_Sync($params)
         }
 
         $status = (string)$result->status;
-        $active = $status === 'Active' ? true : false;
 
-        return [
-            'active' => $active,
-            'cancelled' => !$active,
-            'transferredAway' => false,
-            'expirydate' => (string)$result->expires,
-        ];
+        if ($status === 'Active'){
+            return [
+                'active' => true,
+                'expirydate' => (string)$result->expires,
+            ];
+        }
+        else{
+            return ['active' => false ]; //expired
+        }
 
     } catch (\Throwable $e) {
         return ['error' => 'ERROR: ' . $domainName . ' - ' . $e->getMessage()];
