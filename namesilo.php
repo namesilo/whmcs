@@ -614,7 +614,7 @@ function namesilo_SaveDNS($params)
 
             $hostname = $values["hostname"];
             $type = $values["type"];
-            $address = $values["address"];
+            $address = urlencode($values["address"]);
             $priority = $values["priority"];
             # Check to make sure there is something to add
             //if (empty($hostname) || empty($address)) { continue; }
