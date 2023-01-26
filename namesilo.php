@@ -603,19 +603,18 @@ function namesilo_SaveDNS($params)
     $api_dns_calls = array();
 
     foreach ($params["dnsrecords"] as $key => $values) {
+        $hostname = urlencode(trim($values["hostname"]));
+        $type = $values["type"];
+        $address = urlencode(trim($values["address"]));
+        $priority = urlencode(trim($values["priority"]));
 
         # Check for forwarding and handle differently if it is a forward
         if (($values['type'] == 'URL' || $values['type'] == 'FRAME') && ($values['hostname'] == 'http' || $values['hostname'] == 'https') && @$values['address']) {
 
             $forward_method = ($values['type'] == 'URL' ? '301' : 'cloaked');
-            $apicall = "/api/domainForward?version=1&type=xml&key=$apiKey&domain=$sld.$tld&protocol={$values['hostname']}&address={$values['address']}&method=$forward_method";
+            $apicall = "/api/domainForward?version=1&type=xml&key=$apiKey&domain=$sld.$tld&protocol={$hostname}&address={$address}&method=$forward_method";
 
         } else {
-
-            $hostname = $values["hostname"];
-            $type = $values["type"];
-            $address = urlencode($values["address"]);
-            $priority = $values["priority"];
             # Check to make sure there is something to add
             //if (empty($hostname) || empty($address)) { continue; }
             if (empty($address)) {
