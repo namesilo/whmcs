@@ -308,7 +308,7 @@ Class NamesiloPrices {
 			$result["prices"] = [];
 			foreach ($xml->reply->children() as $tld) {
 				if ($tld->count() === 3) {
-					$result["prices"][] = array("tld" => (string)$tld->getName(), "register" => (string)$tld->registration, "renew" => (string)$tld->renew, "transfer" => (string)$tld->transfer);
+					$result["prices"][] = array("tld" => (string)$tld->getName(), "register" => str_replace(',', '', (string)$tld->registration), "renew" => str_replace(',', '', (string)$tld->renew), "transfer" => str_replace(',', '', (string)$tld->transfer));
 				}
 			}
 		}
