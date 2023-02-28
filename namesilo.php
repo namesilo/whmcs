@@ -1620,6 +1620,9 @@ function namesilo_GetTldPricing($params) {
             $item = new ImportItem();
             $item->setExtension('.' . $price["tld"]);
             $item->setCurrency('USD');
+            $registerPrice = (float)str_replace(',', '', mb_convert_encoding($price["registration"], 'UTF-8'));
+            $renewPrice = (float)str_replace(',', '', mb_convert_encoding($price["renew"], 'UTF-8'));
+            $transferPrice = (float)str_replace(',', '', mb_convert_encoding($price["transfer"], 'UTF-8'));
             $item->setRegisterPrice((float)$price["registration"]);
             $item->setRenewPrice((float)$price["renew"]);
             $item->setTransferPrice((float)$price["transfer"]);
