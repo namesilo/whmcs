@@ -736,20 +736,8 @@ function namesilo_RegisterDomain($params)
     
     # Delete default DNS records if the domain uses namesilo name servers
     if ($deleteDefaultDns) {
-        //Use API to get name servers
-        //Default name servers are used when the API call doesn't include them, when the name servers have errors or when requested
-        $domainNameServers = namesilo_transactionCall("getNameServers", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
-        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com'. 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
-        
-        foreach ($domainNameServers as $nsKey => $nsValue) {
-            if (in_array(strtolower($nsValue), $namesiloNameServers)) {
-                //If a name server matches the defaults, delete (default) DNS records
-                namesilo__deleteDnsRecords($params);
-                break;
-            }
-        }
-    }
-    
+        namesilo__deleteDnsRecords($params);
+    }    
     if (isset($values['error'])) {
         if ($values['error'] == 'Invalid number of years, or no years provided.' && $regperiod > 0 && $regperiod <= 10) {
             $values['error'] = 'Invalid number of years, or no years provided. If a valid number was entered the domain does not support multiple year registrations at the moment, to add extra years please regsiter the domain for one year then  use the renewal process to add extra years.';
