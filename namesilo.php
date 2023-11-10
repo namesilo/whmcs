@@ -239,7 +239,12 @@ function namesilo_transactionCall($callType, $call, $params)
                 $response["prices"] = [];
                 foreach ($xml->reply->children() as $tld) {
                     if ($tld->count() === 3) {
-                        $response["prices"][] = array("tld" => (string)$tld->getName(), "registration" => (string)$tld->registration, "renew" => (string)$tld->renew, "transfer" => (string)$tld->transfer);
+                        $response["prices"][] = array(
+                            "tld"           => (string)$tld->getName(),
+                            "registration"  => number_format((float)str_replace(',', '', $tld->registration), 2, '.', ''),
+                            "renew"         => number_format((float)str_replace(',', '', $tld->renew), 2, '.', ''),
+                            "transfer"      => number_format((float)str_replace(',', '', $tld->transfer), 2, '.', ''),
+                        );
                     }
                 }
                 break;
@@ -736,8 +741,20 @@ function namesilo_RegisterDomain($params)
     
     # Delete default DNS records if the domain uses namesilo name servers
     if ($deleteDefaultDns) {
-        namesilo__deleteDnsRecords($params);
-    }    
+        //Use API to get name servers
+        //Default name servers are used when the API call doesn't include them, when the name servers have errors or when requested
+        $domainNameServers = namesilo_transactionCall("getNameServers", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
+        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com'. 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
+        
+        foreach ($domainNameServers as $nsKey => $nsValue) {
+            if (in_array(strtolower($nsValue), $namesiloNameServers)) {
+                //If a name server matches the defaults, delete (default) DNS records
+                namesilo__deleteDnsRecords($params);
+                break;
+            }
+        }
+    }
+    
     if (isset($values['error'])) {
         if ($values['error'] == 'Invalid number of years, or no years provided.' && $regperiod > 0 && $regperiod <= 10) {
             $values['error'] = 'Invalid number of years, or no years provided. If a valid number was entered the domain does not support multiple year registrations at the moment, to add extra years please regsiter the domain for one year then  use the renewal process to add extra years.';
@@ -1620,9 +1637,6 @@ function namesilo_GetTldPricing($params) {
             $item = new ImportItem();
             $item->setExtension('.' . $price["tld"]);
             $item->setCurrency('USD');
-            $registerPrice = (float)str_replace(',', '', mb_convert_encoding($price["registration"], 'UTF-8'));
-            $renewPrice = (float)str_replace(',', '', mb_convert_encoding($price["renew"], 'UTF-8'));
-            $transferPrice = (float)str_replace(',', '', mb_convert_encoding($price["transfer"], 'UTF-8'));
             $item->setRegisterPrice((float)$price["registration"]);
             $item->setRenewPrice((float)$price["renew"]);
             $item->setTransferPrice((float)$price["transfer"]);
