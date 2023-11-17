@@ -16,6 +16,17 @@ require '../../../includes/registrarfunctions.php';
 
 use WHMCS\Database\Capsule;
 
+function mapDomainStatus(string $status)
+{
+	$statusMapping = [
+		'Active' 					=> 'Active',
+		'Expired (grace period)' 	=> 'Grace',
+		'Expired (restore period)' 	=> 'Redemption',
+	];
+
+	return $statusMapping[$status] ?? null;
+}
+
 /*****************************************/
 /* Transaction Processor Function		 */
 /*****************************************/
@@ -103,7 +114,16 @@ $cronreport = 'NameSilo Domain Sync Report<br>
 ';
 
 # Query WHMCS for a list of domains using NameSilo
-$queryresult = Capsule::table("tbldomains")->select("domain")->where("registrar", '=', "namesilo")->where(function ($query) {$query->where("status", '=', "Pending")->orWhere("status", '=', "Active");})->get()->toArray();
+$queryresult = Capsule::table("tbldomains")
+	->select("domain")
+	->where("registrar", '=', "namesilo")
+	->where(function ($query) {
+		$query
+			->where("status", '=', "Pending")
+			->orWhere("status", '=', "Active")
+			->orWhere("status", '=', "Grace")
+			->orWhere("status", '=', "Redemption");
+	})->get()->toArray();
 
 # Loop through domain useing NameSilo
 foreach ($queryresult as $data) {
@@ -117,10 +137,11 @@ foreach ($queryresult as $data) {
 	# Process results
 	if (!empty($result["expiry"])) {
 		$expirydate = $result ["expiry"];
-		$status = $result ["status"];
-		if ($status == 'Active') {
-			Capsule::table("tbldomains")->where("domain", '=', $domainname)->update(["status" => "Active"]);
+
+		if (mapDomainStatus($result ["status"]) !== null) {
+			Capsule::table("tbldomains")->where("domain", '=', $domainname)->update(["status" => mapDomainStatus($result["status"])]);
 		}
+
 		if ($expirydate) {
 			Capsule::table("tbldomains")->where("domain", '=', $domainname)->update(["expirydate" => $expirydate]);
 			if (@$ns_sync_next_due_date == 'on') {
