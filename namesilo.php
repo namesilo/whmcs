@@ -968,50 +968,28 @@ function namesilo_GetContactDetails($params)
     $tld = urlencode($params["tld"]);
     $sld = urlencode($params["sld"]);
     # Transaction Call
-    $contactid = namesilo_transactionCall("getContactID", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
-    $details_registrant = namesilo_transactionCall("getContactDetails", $apiServerUrl . "/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactid['registrant']}", $params);
-    $details_admin = namesilo_transactionCall("getContactDetails", $apiServerUrl . "/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactid['admin']}", $params);
-    $details_tech = namesilo_transactionCall("getContactDetails", $apiServerUrl . "/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactid['tech']}", $params);
-    # Data should be returned in an array as follows
-    $values["Registrant"]["First Name"] = $details_registrant['firstname'];
-    $values["Registrant"]["Last Name"] = $details_registrant['lastname'];
-    $values["Registrant"]["Company"] = $details_registrant['company'];
-    $values["Registrant"]["Address"] = $details_registrant['address'];
-    $values["Registrant"]["Address 2"] = $details_registrant['address2'];
-    $values["Registrant"]["City"] = $details_registrant['city'];
-    $values["Registrant"]["State"] = $details_registrant['state'];
-    $values["Registrant"]["Postal Code"] = $details_registrant['postalcode'];
-    $values["Registrant"]["Country"] = $details_registrant['country'];
-    $values["Registrant"]["Email"] = $details_registrant['email'];
-    $values["Registrant"]["Phone"] = $details_registrant['phone'];
-    $values["Registrant"]["Fax"] = $details_registrant['fax'];
+    $contactId = namesilo_transactionCall("getContactID", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
 
-    $values["Admin"]["First Name"] = $details_admin['firstname'];
-    $values["Admin"]["Last Name"] = $details_admin['lastname'];
-    $values["Admin"]["Company"] = $details_admin['company'];
-    $values["Admin"]["Address"] = $details_admin['address'];
-    $values["Admin"]["Address 2"] = $details_admin['address2'];
-    $values["Admin"]["City"] = $details_admin['city'];
-    $values["Admin"]["State"] = $details_admin['state'];
-    $values["Admin"]["Postal Code"] = $details_admin['postalcode'];
-    $values["Admin"]["Country"] = $details_admin['country'];
-    $values["Admin"]["Email"] = $details_admin['email'];
-    $values["Admin"]["Phone"] = $details_admin['phone'];
-    $values["Admin"]["Fax"] = $details_admin['fax'];
+    $roles = ['Registrant', 'Admin', 'Tech'];
+    $values = [];
 
-    $values["Tech"]["First Name"] = $details_tech['firstname'];
-    $values["Tech"]["Last Name"] = $details_tech['lastname'];
-    $values["Tech"]["Company"] = $details_tech['company'];
-    $values["Tech"]["Address"] = $details_tech['address'];
-    $values["Tech"]["Address 2"] = $details_tech['address2'];
-    $values["Tech"]["City"] = $details_tech['city'];
-    $values["Tech"]["State"] = $details_tech['state'];
-    $values["Tech"]["Postal Code"] = $details_tech['postalcode'];
-    $values["Tech"]["Country"] = $details_tech['country'];
-    $values["Tech"]["Email"] = $details_tech['email'];
-    $values["Tech"]["Phone"] = $details_tech['phone'];
-    $values["Tech"]["Fax"] = $details_tech['fax'];
-    # Return Results
+    foreach ($roles as $role) {
+        $details = namesilo_transactionCall("getContactDetails", "$apiServerUrl/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contactId[\strtolower($role)]}", $params);
+
+        $values[$role]["First Name"] = (string)$details['firstname'];
+        $values[$role]["Last Name"] = (string)$details['lastname'];
+        $values[$role]["Company"] = (string)$details['company'];
+        $values[$role]["Address"] = (string)$details['address'];
+        $values[$role]["Address 2"] = (string)$details['address2'];
+        $values[$role]["City"] = (string) $details['city'];
+        $values[$role]["State"] = (string)$details['state'];
+        $values[$role]["Postal Code"] = (string)$details['postalcode'];
+        $values[$role]["Country"] = (string)$details['country'];
+        $values[$role]["Email"] = (string)$details['email'];
+        $values[$role]["Phone"] = (string)$details['phone'];
+        $values[$role]["Fax"] = (string)$details['fax'];
+    }
+
     return $values;
 }
 
