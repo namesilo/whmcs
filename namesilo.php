@@ -269,7 +269,7 @@ function namesilo_transactionCall($callType, $call, $params)
         # Prepare Message
         $message = "Transaction Call: " . $call . "\n\n";
         $message .= "XML Response: " . $content . "\n\n";
-        $message .= "Error Message: " . $response['error'] . "\n\n";
+        $message .= "Error Message: " .  isset($response['error']) ?? $response['error'] . "\n\n";
         $message .= "Response Code: " . $code . "\n\n";
         $message .= "Response Detail: " . $detail . "\n\n";
         $message .= $params["sld"] . "." . $params["tld"];
