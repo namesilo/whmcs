@@ -1267,7 +1267,7 @@ foreach ($tldWorkList as $wTld) {
 	$newPrices = [];
 	foreach ($priceOperationList as $pOperation) {
 		//Get price from namesilo using the TLD from the worklist and the operation from the operation list
-		$newPrice = $nsPriceList->getPrice($wTld, $pOperation);
+		$newPrice = $nsPriceList->getPrice($wTld, ($pOperation == 'register') ? 'registration' : $pOperation);
 		
 		//Skip operation if namesilo doesn't have a price
 		if (is_null($newPrice)) {
