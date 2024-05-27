@@ -1328,7 +1328,7 @@ if (!$cronreport) {
 		$cronreport = "Nothing to sync<br>";
 	} else {
 		foreach ($updatedTlds as $updatedTld) {
-			$cronreport .= $updatedTld['tld'] . ':' . $updatedTld['price'] . '<br>';
+			$cronreport .= $updatedTld['tld'] . ' : $ '. $updatedTld['price'] . '<br>';
 		}
 	}
 }
@@ -1343,7 +1343,7 @@ echo $cronreport_result;
 /*****************************************/
 /* Log System Activity					 */
 /*****************************************/
-logactivity('NameSilo Domain Sync Run');
+logactivity('NameSilo Price Sync Run');
 
 /*****************************************/
 /* Send Cron Report						 */
