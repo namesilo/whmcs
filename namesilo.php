@@ -1520,6 +1520,7 @@ function namesilo_CheckAvailability ($params) {
                 $sDomain["searchResult"] = $sResult;
             }
         }
+        unset($sDomain);
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
@@ -1588,6 +1589,7 @@ function namesilo_GetDomainSuggestions($params) {
                 }
             }
         }
+        unset($sDomain);
     } else {
         //logActivity($values["error"]);
         throw new Exception($values["error"]);
