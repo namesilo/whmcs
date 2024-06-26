@@ -1430,23 +1430,34 @@ function namesilo_TransferSync($params){
         }
 
         $status = (string)$result->status;
-        if ($status === 'Transfer Completed'){
-            return array(
-                'completed' => true, // Return as true upon successful completion of the transfer
-                'expirydate' => (string)$result->expiration, // The expiry date of the domain    
-            );
+        if ($status === 'Transfer Completed') {
+
+            /** @var SimpleXMLElement $result */
+            $domainInfoResult = namesilo_transactionCall('domainSync', $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$domainName", $params);
+
+            $code = (int)$domainInfoResult->code;
+            if ($code !== 300) {
+                return ['error' => 'ERROR: ' . $domainName . ' - Code:' . $code . ' Domain Info Detail: ' . (string)$domainInfoResult->detail];
+            }
+
+            $status = (string)$domainInfoResult->status;
+            if ($status === 'Active') {
+                return array(
+                    'completed' => true, // Return as true upon successful completion of the transfer
+                    'expirydate' => (string)$result->expiration, // The expiry date of the domain
+                );
+            }
         } else if (in_array($status, $transfer_failed_statuses)){
             return array(
                 'failed' => true,
                 'reason' => $status
             );
-        } else {
-            return array(
-                'completed' => false,
-                'failed' => false
-            );
         }
 
+        return array(
+            'completed' => false,
+            'failed' => false
+        );
     } catch (\Throwable $e) {
         return ['error' => 'ERROR: ' . $domainName . ' - ' . $e->getMessage()];
     }
