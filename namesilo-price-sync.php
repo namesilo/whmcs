@@ -388,8 +388,11 @@ Class WhmcsDbHandler {
 		foreach ($this->elements as $element) {
 			$dbSelector[] = $element[1];
 		}
-		
-		$dbData = $this->_getTable()->select($dbSelector)->get()->toArray();
+
+		$dbData = $this->_getTable()->select($dbSelector)->get();
+		if(!is_array($dbData)){
+			$dbData->toArray();
+		}
 		
 		//Convert and add each database row to entry list
 		foreach ($dbData as $dbEntry) {
