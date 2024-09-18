@@ -299,6 +299,129 @@ function namesilo_transactionCall($callType, $call, $params)
     return $response;
 }
 
+function namesilo_GetDomainInformation(array $params)
+{
+    # Set Appropriate API Server
+    $apiServerUrl = ($params['Test_Mode'] == 'on') ? TEST_API_SERVER : LIVE_API_SERVER;
+    
+    # Set Appropriate API Key
+    $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
+    
+    # Register Variables
+    $tld = urlencode($params["tld"]);
+    $sld = urlencode($params["sld"]);
+
+    # Transaction Call
+    $domain = namesilo_transactionCall("domainSync", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
+
+    $contact_ids = $domain->contact_ids;
+
+    $response = [];
+
+    $nameservers = $domain->nameservers;
+    $i = 0;
+    foreach ($nameservers->nameserver as $ns) {
+        $response['nameservers']['ns' . ++$i] = (string)$ns;
+    }
+
+    $status = (string)$domain->status;
+    $active = $status === 'Active' ? true : false;
+    $response['status'] = [
+        'active' => $active,
+        'cancelled' => !$active,
+        'transferredAway' => false,
+        'expirydate' => (string)$domain->expires,
+    ];
+
+    $TransferLock = (string)$domain->locked;
+    if ($TransferLock == 'Yes') {
+        $response['transferlock'] = 'locked';
+    } elseif ($TransferLock == 'No') {
+        $response['transferlock'] = 'unlocked';
+    } else {
+        $response['transferlock']['error'] = 'There was a problem';
+    }
+
+
+    $details = namesilo_transactionCall("getContactDetails", "$apiServerUrl/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contact_ids->registrant}", $params);
+
+    $firstName = (string)$details['firstname'];
+    $lastName = (string)$details['lastname'];
+    $organisation = (string)$details['company'];
+    $email = (string)$details['email'];
+
+    $verificationResult = namesilo_transactionCall('registrantVerificationStatus', "$apiServerUrl/api/registrantVerificationStatus?version=1&type=xml&key=$apiKey&email=$email", $params);
+
+    $is_verified = true;
+
+    if (!empty($verificationResult["is_veified"])) {
+        $is_verified = strtolower($verificationResult["is_veified"]) === 'yes' ? true : false;
+    }
+
+    if (!$is_verified) {
+        return (new Domain)
+            ->setIsIrtpEnabled(true)
+            ->setIrtpOptOutStatus(false)
+            ->setRestorable(false)
+            ->setIrtpTransferLock(true)
+            ->setDomainContactChangePending(true)
+            ->setPendingSuspension(true)
+            ->setIrtpVerificationTriggerFields(
+                [
+                    'Registrant' => [
+                        $firstName,
+                        $lastName,
+                        $organisation,
+                        $email,
+                    ],
+                ]
+            );
+    }
+
+    return (new Domain)
+        ->setNameservers($response['nameservers'])
+        ->setRegistrationStatus($response['status'])
+        ->setTransferLock($response['transferlock'])
+        ->setTransferLockExpiryDate(null)
+        ->setIsIrtpEnabled(in_array($tld, ['.com']))
+        ->setDomainContactChangeExpiryDate($response['status']['expires'])
+        ->setIrtpVerificationTriggerFields(
+            [
+                'Registrant' => [
+                    $firstName,
+                    $lastName,
+                    $organisation,
+                    $email,
+                ],
+            ]
+        );
+}
+
+function namesilo_ResendIRTPVerificationEmail($params)
+{
+    # Set Appropriate API Server
+    $apiServerUrl = ($params['Test_Mode'] == 'on') ? TEST_API_SERVER : LIVE_API_SERVER;
+    # Set Appropriate API Key
+    $apiKey = ($params['Test_Mode'] == 'on') ? $params['Sandbox_API_Key'] : $params['Live_API_Key'];
+    $tld = urlencode($params["tld"]);
+    $sld = urlencode($params["sld"]);
+   
+    $contact_ids = namesilo_transactionCall("getContactID", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
+    
+    $role = 'registrant';
+
+    $details = namesilo_transactionCall("getContactDetails", "$apiServerUrl/api/contactList?version=1&type=xml&key=$apiKey&contact_id={$contact_ids[$role]}", $params);
+    
+    $email = (string)$details['email'];
+
+    $result = namesilo_transactionCall("emailVerification", "$apiServerUrl/api/emailVerification?version=1&type=xml&key=$apiKey&email=$email", $params);
+   
+    if ($result["error"]) {
+        return ['error' => $result["error"]];
+    }
+
+    return ['success' => true];
+}
 /*****************************************/
 /* Process .us/.ca params                */
 /*****************************************/
