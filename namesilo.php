@@ -10,6 +10,7 @@ use WHMCS\Domains\DomainLookup\SearchResult;
 
 #Price sync dependencies
 //use WHMCS\Domains\DomainLookup\ResultsList;
+use WHMCS\Domain\Registrar\Domain;
 use WHMCS\Domain\TopLevel\ImportItem;
 
 function namesilo_getConfigArray()
@@ -96,6 +97,10 @@ function namesilo_transactionCall($callType, $call, $params)
                     $response['error'] .= ' - ' . (string)$xml->reply->message;
                 }
                 break;
+            case "registrantVerificationStatus":
+                if ($code == '300') {
+                    $response['is_veified'] = $xml->reply->email->verified;;
+                }
             case 'domainSync':
 
                 return $xml->reply;
@@ -384,7 +389,6 @@ function namesilo_GetDomainInformation(array $params)
         ->setTransferLock($response['transferlock'])
         ->setTransferLockExpiryDate(null)
         ->setIsIrtpEnabled(in_array($tld, ['.com']))
-        ->setDomainContactChangeExpiryDate($response['status']['expires'])
         ->setIrtpVerificationTriggerFields(
             [
                 'Registrant' => [
