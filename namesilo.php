@@ -99,8 +99,12 @@ function namesilo_transactionCall($callType, $call, $params)
                 break;
             case "registrantVerificationStatus":
                 if ($code == '300') {
-                    $response['is_veified'] = $xml->reply->email->verified;;
+                    $response['email'] = $xml->reply->email;
+                    break;
                 }
+
+                $response['error'] = $detail;
+                break;
             case 'domainSync':
 
                 return $xml->reply;
@@ -355,13 +359,10 @@ function namesilo_GetDomainInformation(array $params)
     $organisation = (string)$details['company'];
     $email = (string)$details['email'];
 
-    $verificationResult = namesilo_transactionCall('registrantVerificationStatus', "$apiServerUrl/api/registrantVerificationStatus?version=1&type=xml&key=$apiKey&email=$email", $params);
+    $verificationDetails = namesilo_transactionCall('registrantVerificationStatus', "$apiServerUrl/api/registrantVerificationStatus?version=1&type=xml&key=$apiKey&email=$email", $params);
+    $result = (array)$verificationDetails['email'];
 
-    $is_verified = true;
-
-    if (!empty($verificationResult["is_veified"])) {
-        $is_verified = strtolower($verificationResult["is_veified"]) === 'yes' ? true : false;
-    }
+    $is_verified = !empty($result) && strtolower($result['verified']) === 'yes';
 
     if (!$is_verified) {
         return (new Domain)
