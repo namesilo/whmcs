@@ -334,7 +334,7 @@ function namesilo_GetDomainInformation(array $params)
     }
 
     $status = (string)$domain->status;
-    $active = $status === 'Active' ? true : false;
+    $active = in_array($status, ['Active', 'Grace', 'Redemption'], true);
     $response['status'] = [
         'active' => $active,
         'cancelled' => !$active,
@@ -1511,7 +1511,7 @@ function namesilo_Sync($params)
         }
 
         $status = (string)$result->status;
-        $active = $status === 'Active' ? true : false;
+        $active = in_array($status, ['Active', 'Grace', 'Redemption'], true);
 
         return [
             'active' => $active,
