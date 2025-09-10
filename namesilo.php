@@ -13,6 +13,23 @@ use WHMCS\Domains\DomainLookup\SearchResult;
 use WHMCS\Domain\Registrar\Domain;
 use WHMCS\Domain\TopLevel\ImportItem;
 
+//List of statuses returned from API for domainInfo:
+//    'Active'
+//    'Expired (grace period)'
+//    'Expired (restore period)'
+//    'Expired (pending delete)'
+//    'Inactive'
+//    'Pending Outbound Transfer'
+//    'External Domain'
+//
+//    If VerificationLock == 1
+//    'Suspended (no email verification)'
+
+function isStatusActive($status)
+{
+    return in_array($status, ['Active', 'Expired (grace period)', 'Expired (restore period)'], true);
+}
+
 function namesilo_getConfigArray()
 {
 
@@ -122,6 +139,7 @@ function namesilo_transactionCall($callType, $call, $params)
                 }
                 $response['error'] = $detail ?: 'Domain sync failed';
                 $response['code']  = $code;
+                $response['inactive_type'] = $code == 200 ? $xml->reply->inactive_type : null;
                 break;
 
             case "getRegistrarLock":
@@ -396,10 +414,10 @@ function namesilo_GetDomainInformation(array $params)
 
     // Status
     $statusStr = isset($domain->status) ? (string)$domain->status : '';
-    $active = in_array($statusStr, ['Active', 'Grace', 'Redemption'], true);
+    $active = isStatusActive($statusStr);
     $response['status'] = [
         'active'          => $active,
-        'cancelled'       => !$active,
+        'cancelled'       => false,
         'transferredAway' => false,
         'expirydate'      => isset($domain->expires) ? (string)$domain->expires : null,
     ];
@@ -1578,45 +1596,54 @@ function namesilo_Sync($params)
         $domainName = $params['sld'] . '.' . $params['tld'];
     }
 
-
     try {
-        /** @var SimpleXMLElement $result */
+        /** @var SimpleXMLElement|array $result */
         $result = namesilo_transactionCall('domainSync', $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$domainName", $params);
 
-        $code = (int)$result->code;
-
-        if ($code === 200) {
-
-            // Domain was transferred away
-            if ('Outbound Transfer' === $result->inactive_type) {
+        if (is_array($result)) {
+            if ($result['code'] == 200) {
+                if ($result['inactive_type'] == 'Outbound Transfer') {
+                    return [
+                        'active' => false,
+                        'cancelled' => false,
+                        'transferredAway' => true,
+                        'expirydate' => null,
+                    ];
+                } elseif ($result['inactive_type'] == 'Order Cancelled') {
+                    return [
+                        'active' => false,
+                        'cancelled' => true,
+                        'transferredAway' => false,
+                        'expirydate' => null,
+                    ];
+                } else {
+                    return [
+                        'active' => false,
+                        'cancelled' => false,
+                        'transferredAway' => false,
+                        'expirydate' => null,
+                    ];
+                }
+            } else {
                 return [
-                    'transferredAway' => true,
+                    'error' => 'ERROR: ' . $domainName . ' - Code:' . $result['code'] . ' Detail: ' . $result['error']
                 ];
             }
-
-            // Domain is not active, or does not belong to this user
-            return [
-                'active' => false,
-                'cancelled' => true,
-                'expirydate' => (new \DateTime)->format('Y-m-d'),
-            ];
-        }
-
-        if ($code !== 300) {
-            return ['error' => 'ERROR: ' . $domainName . ' - Code:' . $code . ' Detail: ' . (string)$result->detail];
         }
 
         $status = (string)$result->status;
-        $active = in_array($status, ['Active', 'Grace', 'Redemption'], true);
+        $active = isStatusActive($status);
 
         return [
             'active' => $active,
-            'cancelled' => !$active,
+            'cancelled' => false,
             'transferredAway' => false,
             'expirydate' => (string)$result->expires,
         ];
     } catch (\Throwable $e) {
-        return ['error' => 'ERROR: ' . $domainName . ' - ' . $e->getMessage()];
+        return [
+            'error' => 'ERROR: ' . $domainName . ' - ' . $e->getMessage()
+        ];
     }
 }
 
@@ -1644,24 +1671,22 @@ function namesilo_TransferSync($params)
     );
 
     try {
-        /** @var SimpleXMLElement $result */
+        /** @var SimpleXMLElement|array $result */
         $result = namesilo_transactionCall('domainSync', $apiServerUrl . "/api/checkTransferStatus?version=1&type=xml&key=$apiKey&domain=$domainName", $params);
 
-        $code = (int)$result->code;
-
-        if ($code !== 300) {
-            return ['error' => 'ERROR: ' . $domainName . ' - Code:' . $code . ' Detail: ' . (string)$result->detail];
+        if (is_array($result)) {
+            return [
+                'error' => 'ERROR: ' . $domainName . ' - Code:' . $result['code'] . ' Detail: ' . $result['error']
+            ];
         }
 
         $status = (string)$result->status;
         if ($status === 'Transfer Completed') {
-
-            /** @var SimpleXMLElement $result */
+            /** @var SimpleXMLElement|array $result */
             $domainInfoResult = namesilo_transactionCall('domainSync', $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$domainName", $params);
 
-            $code = (int)$domainInfoResult->code;
-            if ($code !== 300) {
-                return ['error' => 'ERROR: ' . $domainName . ' - Code:' . $code . ' Domain Info Detail: ' . (string)$domainInfoResult->detail];
+            if (is_array($domainInfoResult)) {
+                return ['error' => 'ERROR: ' . $domainName . ' - Code:' . $domainInfoResult['code'] . ' Domain Info Detail: ' . $domainInfoResult['error']];
             }
 
             $status = (string)$domainInfoResult->status;
