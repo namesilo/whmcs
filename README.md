@@ -35,7 +35,6 @@ standard FTP client (e.g. http://www.yourdomain.com/whmcs/modules/registrars/nam
 
 **To enbale premium domain pricing support select NameSilo as the default lookup provider (Setup > Products/Services > Domain Pricing > Lookup Providers).
 
-**Premium domain orders need to be completed manually, premium pricing and customer ordering work as normal
 
 **TLD Sync support was added, to use it go to Utilities > Registrar TLD Sync (requires at least WHMCS 7.10).
 
