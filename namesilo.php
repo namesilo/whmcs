@@ -215,11 +215,8 @@ function namesilo_transactionCall($callType, $call, $params)
                 if ($code == 300) {
                     foreach (($xml->reply->resource_record ?? []) as $record) {
                         $hostname = (string)$record->host;
-                        if ($hostname == $params['sld'] . "." . $params['tld']) {
-                            $hostname = '';
-                        }
-                        $hostname = explode(".", $hostname);
-                        $hostname = (string)$hostname[0];
+                        $hostname = str_replace($params['sld'] . "." . $params['tld'], "", $hostname);
+                        $hostname = rtrim($hostname, ".");
                         $response[] = array(
                             "hostname"  => $hostname,
                             "type"      => $record->type,
