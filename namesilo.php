@@ -420,11 +420,8 @@ function namesilo_GetDomainInformation(array $params)
     ];
 
     // Transfer lock
-    $transferLock = isset($domain->locked) ? (string)$domain->locked : '';
-    if (strcasecmp($transferLock, 'Yes') === 0) {
-        $response['transferlock'] = 'locked';
-    } elseif (strcasecmp($transferLock, 'No') === 0) {
-        $response['transferlock'] = 'unlocked';
+    if (isset($domain->locked) && (strcasecmp((string)$domain->locked, 'Yes') === 0)) {
+        $response['transferlock'] = true;
     } else {
         $response['transferlock'] = 'unlocked'; // safe default
     }
