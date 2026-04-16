@@ -5,9 +5,11 @@ Script for synchronizing TLD prices with namesilo, adds information directly to 
 php namesilo-price-sync.php [-margin=0.00[%/p]] [-update=none/already-added/namesilo-only/all] [-make-default-registrar=false/true] [-round-to-next=0.00] [-template=.tld] [-exclude=.tld,...] [-include=.tld,...]
 
 Arguments:
--margin=0.0[%/p]
-Profit margin to add on each price, it can be a fixed amount or a percentage (by using p or % at the end of the number)
-Examples: 5.10, 3p, 22%
+-margin=0.0[%/p][+0.0[%/p]]
+Profit margin to add on each price. Accepts a fixed amount, a percentage, or both combined with '+'.
+Parts ending in p or % are treated as a percentage; plain numbers are treated as a fixed amount.
+Order of parts does not matter. Application order: percentage first, then fixed.
+Examples: 5.10, 3p, 22%, 0.1+10p, 10%+0.5, 10p+0.1, 0.5+15%
 Default value is: 0.00
 *Cron treats percent signs in a special way, if used escape the percent sign or use p instead
 
@@ -42,7 +44,7 @@ TLDs to include during the update, accepts a comma separated list
 Example: .com,.net,.org
 
 Sample call:
-php namesilo-price-sync.php -margin=15% -update=namesilo-only -make-default-registrar=true -round-to-next=0.50 -template=.com -exclude=.xyz -include=.buzz,.top
+php namesilo-price-sync.php -margin=0.5+15% -update=namesilo-only -make-default-registrar=true -round-to-next=0.50 -template=.com -exclude=.xyz -include=.buzz,.top
 */
 
 if (isset($_SERVER['REMOTE_ADDR'])) {
@@ -59,39 +61,25 @@ chdir($module_dir);
 require '../../../init.php';
 require '../../../includes/functions.php';
 require '../../../includes/registrarfunctions.php';
+require __DIR__ . '/utils.php';
 
 use WHMCS\Database\Capsule;
 
 /*****************************************/
 /* Process arguments					 */
 /*****************************************/
+
+$marginRawValue = '';
 foreach ($argv as $ar) {
 	if (preg_match('/^-{1,2}margin=/i', $ar)) {
-		$margin = explode('=', $ar);
-		(count($margin) > 1) ? $margin = $margin[1] : $margin = null;
-		
-		if ($margin) {
-			$marginType = 'fixed';
-			
-			if (preg_match('/(%|p)/i', $margin)) {
-				$marginType = 'percentage';
-				
-				$margin = preg_replace('/(%|p)/i', '', $margin);
-			}
-		
-		
-			$margin = (float)$margin;
-		}
-		
+		$marginRaw = explode('=', $ar, 2);
+        $marginRawValue = (count($marginRaw) > 1) ? $marginRaw[1] : '';
 		break;
 	}
 }
-if (!isset($margin) || is_null($margin)) {
-	$margin = 0.0;
-	$marginType = 'fixed';
-}
-
-
+$marginParsed = parseMargin($marginRawValue);
+$marginFixed   = $marginParsed['fixed'];
+$marginPercent = $marginParsed['pct'];
 
 foreach ($argv as $ar) {
 	if (preg_match('/^-{1,2}update=/i', $ar)) {
@@ -1276,12 +1264,8 @@ foreach ($tldWorkList as $wTld) {
 			continue;
 		}
 		
-		//Add margin to price
-		if ($marginType == 'fixed') {
-			$newPrice += $margin;
-		} elseif ($marginType == 'percentage') {
-			$newPrice += $newPrice * ($margin/100);
-		}
+		//Add margin to price: percentage and fixed
+		$newPrice += $newPrice * ($marginPercent / 100) + $marginFixed;
 		
 		//Round to next decimal
 		if (!is_null($roundToNext)) {
