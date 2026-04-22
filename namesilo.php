@@ -27,7 +27,14 @@ use WHMCS\Domain\TopLevel\ImportItem;
 
 function isStatusActive($status)
 {
-    return in_array($status, ['Active', 'Expired (grace period)', 'Expired (restore period)'], true);
+    return in_array($status, [
+        'Active',
+        'Expired (grace period)',
+        'Expired (restore period)',
+        'Suspended (no email verification)',
+        'Suspended (default contact values)',
+        'Suspended (both cases)',
+    ], true);
 }
 
 function namesilo_getConfigArray()
