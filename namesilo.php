@@ -384,24 +384,12 @@ function namesilo_GetDomainInformation(array $params)
         $params
     );
 
-    // If our wrapper returned an error array, bail gracefully
+    // If our wrapper returned an error array, surface it as an exception.
+    // Per the WHMCS docs, GetDomainInformation must throw on a fetch error so WHMCS
+    // can display the message, rather than fabricating a cancelled/transferred status
+    // (which would wrongly flag a domain on a transient API/network error).
     if (is_array($domain) && isset($domain['error'])) {
-        $status = [
-            'active'          => false,
-            'cancelled'       => true,
-            'transferredAway' => true,
-            'expirydate'      => null,
-        ];
-        return (new \WHMCS\Domain\Registrar\Domain)
-            ->setNameservers([])
-            ->setRegistrationStatus($status)
-            ->setTransferLock('unlocked')
-            ->setTransferLockExpiryDate(null)
-            ->setIsIrtpEnabled(false)
-            ->setIrtpOptOutStatus(false)
-            ->setRestorable(false)
-            ->setDomainContactChangePending(false)
-            ->setPendingSuspension(false);
+        throw new Exception('NameSilo: ' . $domain['error']);
     }
 
     // $domain is the <reply> node (SimpleXMLElement) on success
@@ -987,7 +975,7 @@ function namesilo_RegisterDomain($params)
         //Use API to get name servers
         //Default name servers are used when the API call doesn't include them, when the name servers have errors or when requested
         $domainNameServers = namesilo_transactionCall("getNameServers", $apiServerUrl . "/api/getDomainInfo?version=1&type=xml&key=$apiKey&domain=$sld.$tld", $params);
-        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com' . 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
+        $namesiloNameServers = ['ns1.dnsowl.com', 'ns2.dnsowl.com', 'ns3.dnsowl.com', 'premium-ns1.dnsowl.com', 'premium-ns2.dnsowl.com', 'premium-ns3.dnsowl.com'];
 
         foreach ($domainNameServers as $nsKey => $nsValue) {
             if (in_array(strtolower($nsValue), $namesiloNameServers)) {
