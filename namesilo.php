@@ -947,7 +947,7 @@ function namesilo_RegisterDomain($params)
     $RegistrantPostalCode = urlencode($params["postcode"]);
     $RegistrantCountry = urlencode($params["country"]);
     $RegistrantEmailAddress = urlencode($params["email"]);
-    $RegistrantPhone = urlencode($params["phonenumber"]);
+    $RegistrantPhone = urlencode($params["fullphonenumber"]);
 
     if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo__whoisPrivacySupported($tld)) {
         $private = "1";
@@ -1122,7 +1122,7 @@ function namesilo_TransferDomain($params)
     $RegistrantPostalCode = urlencode($params["postcode"]);
     $RegistrantCountry = urlencode($params["country"]);
     $RegistrantEmailAddress = urlencode($params["email"]);
-    $RegistrantPhone = urlencode($params["phonenumber"]);
+    $RegistrantPhone = urlencode($params["fullphonenumber"]);
 
     if (($params["idprotection"] || $params['Default_Privacy'] == "on") && namesilo__whoisPrivacySupported($tld)) {
         $private = "1";
