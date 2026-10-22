@@ -1130,7 +1130,7 @@ function namesilo_TransferDomain($params)
 
     # Transaction Call
     //US-CA handling
-    if (strtolower($params['tld']) == 'ca' || strtolower($params['tld']) == 'us') {
+    if (strtolower($params['tld']) == 'ca' || strtolower($params['tld']) == 'us' || strtolower($params['tld']) == 'eu') {
         $vars = array(
             'apiServerUrl' => $apiServerUrl,
             'apiKey' => $apiKey,
@@ -1156,6 +1156,8 @@ function namesilo_TransferDomain($params)
             $values = namesilo__transferCaDomain($vars, $params);
         } elseif (strtolower($params['tld']) == 'us') {
             $values = namesilo__transferUsDomain($vars, $params);
+        } elseif (strtolower($params['tld']) == 'eu') {
+            $values = namesilo__transferEuDomain($vars, $params);
         }
     } else {
         //Regular transfer call
@@ -1205,6 +1207,28 @@ function namesilo__transferCaDomain($vars, $params)
     $params['additionalfields']['WHOIS Opt-out'] == 'on' || $vars['private'] == "1" ? $caWhoisPrivacy = 'on' : $caWhoisPrivacy = '';
 
     $tldParams = namesilo__convertCaParams($params['additionalfields']['Legal Type'], $caWhoisPrivacy);
+
+    $newContactCall = $vars['apiServerUrl'] . "/api/contactAdd?version=1&type=xml&key=" . $vars['apiKey'] . "&fn=" . $vars['RegistrantFirstName'] . "&ln=" . $vars['RegistrantLastName'] . "&ad=" . $vars['RegistrantAddress1'] . "&ad2=" . $vars['RegistrantAddress2'] . "&cy=" . $vars['RegistrantCity'] . "&st=" . $vars['RegistrantStateProvince'] . "&zp=" . $vars['RegistrantPostalCode'] . "&ct=" . $vars['RegistrantCountry'] . "&em=" . $vars['RegistrantEmailAddress'] . "&ph=" . $vars['RegistrantPhone'];
+
+    foreach ($tldParams as $apiParam => $apiVal) {
+        $newContactCall .= '&' . $apiParam . '=' . $apiVal;
+    }
+
+    $newTransferCall = $vars['apiServerUrl'] . "/api/transferDomain?version=1&type=xml&key=" . $vars['apiKey'] . "&domain=" . $vars['sld'] . "." . $vars['tld'] . "&auth=" . $vars['transfersecret'] . "&payment_id=" . $vars['paymentid'] . "&private=" . $vars['private'] . "&auto_renew=" . $vars['auto_renew'];
+
+    return namesilo__transferContactDomain($newContactCall, $newTransferCall, $params, $vars);
+}
+
+function namesilo__transferEuDomain($vars, $params)
+{
+    $entityType = $params['additionalfields']['Entity Type'] ?? '';
+    $euCitizenship = $params['additionalfields']['EU Country of Citizenship'] ?? '';
+
+    if ($euCitizenship === '') {
+        return ['error' => 'EU Country of Citizenship is required for .EU domains.'];
+    }
+
+    $tldParams = namesilo__convertEuParams($entityType, $euCitizenship);
 
     $newContactCall = $vars['apiServerUrl'] . "/api/contactAdd?version=1&type=xml&key=" . $vars['apiKey'] . "&fn=" . $vars['RegistrantFirstName'] . "&ln=" . $vars['RegistrantLastName'] . "&ad=" . $vars['RegistrantAddress1'] . "&ad2=" . $vars['RegistrantAddress2'] . "&cy=" . $vars['RegistrantCity'] . "&st=" . $vars['RegistrantStateProvince'] . "&zp=" . $vars['RegistrantPostalCode'] . "&ct=" . $vars['RegistrantCountry'] . "&em=" . $vars['RegistrantEmailAddress'] . "&ph=" . $vars['RegistrantPhone'];
 
